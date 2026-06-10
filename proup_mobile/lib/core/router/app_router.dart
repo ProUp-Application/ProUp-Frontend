@@ -1,0 +1,83 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
+import 'app_routes.dart';
+
+class AppRouter {
+  const AppRouter._();
+
+  static final GoRouter router = GoRouter(
+    initialLocation: AppRoutes.splash,
+    routes: [
+      GoRoute(
+        path: AppRoutes.splash,
+        builder: (context, state) => const _PlaceholderScreen(title: 'Splash'),
+      ),
+        GoRoute(
+        path: AppRoutes.onboarding,
+        builder: (context, state) =>
+            const _PlaceholderScreen(title: 'Onboarding'),
+      ),
+      GoRoute(
+        path: AppRoutes.login,
+        builder: (context, state) => const _PlaceholderScreen(title: 'Login'),
+      ),
+      GoRoute(
+        path: AppRoutes.register,
+        builder: (context, state) =>
+            const _PlaceholderScreen(title: 'Registro'),
+      ),
+      GoRoute(
+        path: AppRoutes.dashboard,
+        builder: (context, state) =>
+            const _PlaceholderScreen(title: 'Dashboard'),
+      ),
+      GoRoute(
+        path: AppRoutes.imageAnalysis,
+        builder: (context, state) =>
+            const _PlaceholderScreen(title: 'Análisis de imagen'),
+      ),
+      GoRoute(
+        path: AppRoutes.interview,
+        builder: (context, state) =>
+            const _PlaceholderScreen(title: 'Simulador de entrevista'),
+      ),
+      GoRoute(
+        path: AppRoutes.chatbot,
+        builder: (context, state) => const _PlaceholderScreen(title: 'Chatbot'),
+      ),
+      GoRoute(
+        path: AppRoutes.progress,
+        builder: (context, state) =>
+            const _PlaceholderScreen(title: 'Progreso'),
+      ),
+      GoRoute(
+        path: AppRoutes.profile,
+        builder: (context, state) => const _PlaceholderScreen(title: 'Perfil'),
+      ),
+    ],
+  );
+}
+
+class _PlaceholderScreen extends StatelessWidget {
+  const _PlaceholderScreen({
+    required this.title,
+  });
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title),
+      ),
+      body: Center(
+        child: Text(
+          title,
+          style: Theme.of(context).textTheme.headlineMedium,
+        ),
+      ),
+    );
+  }
+}
