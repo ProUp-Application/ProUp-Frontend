@@ -4,6 +4,11 @@ import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/authentication/presentation/screens/login_screen.dart';
 import '../../features/authentication/presentation/screens/register_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
+import '../../features/image_analysis/presentation/screens/image_analysis_result_screen.dart';
+import '../../features/image_analysis/presentation/screens/image_scan_screen.dart';
+import '../../features/interview/presentation/screens/interview_feedback_screen.dart';
+import '../../features/interview/presentation/screens/interview_selection_screen.dart';
+import '../../features/interview/presentation/screens/interview_session_screen.dart';
 
 import 'app_routes.dart';
 
@@ -36,13 +41,23 @@ class AppRouter {
       ),
       GoRoute(
         path: AppRoutes.imageAnalysis,
-        builder: (context, state) =>
-            const _PlaceholderScreen(title: 'Análisis de imagen'),
+        builder: (context, state) => const ImageScanScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.imageAnalysisResult,
+        builder: (context, state) => const ImageAnalysisResultScreen(),
       ),
       GoRoute(
         path: AppRoutes.interview,
-        builder: (context, state) =>
-            const _PlaceholderScreen(title: 'Simulador de entrevista'),
+        builder: (context, state) => const InterviewSelectionScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.interviewSession,
+        builder: (context, state) => const InterviewSessionScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.interviewFeedback,
+        builder: (context, state) => const InterviewFeedbackScreen(),
       ),
       GoRoute(
         path: AppRoutes.chatbot,
