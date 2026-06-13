@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/authentication/presentation/screens/login_screen.dart';
 import '../../features/authentication/presentation/screens/register_screen.dart';
+import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
 
 import 'app_routes.dart';
 
@@ -31,8 +32,7 @@ class AppRouter {
       ),
       GoRoute(
         path: AppRoutes.dashboard,
-        builder: (context, state) =>
-            const _PlaceholderScreen(title: 'Dashboard'),
+        builder: (context, state) => const DashboardScreen(),
       ),
       GoRoute(
         path: AppRoutes.imageAnalysis,
