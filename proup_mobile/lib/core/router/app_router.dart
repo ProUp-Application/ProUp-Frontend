@@ -4,6 +4,8 @@ import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/authentication/presentation/screens/login_screen.dart';
 import '../../features/authentication/presentation/screens/register_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
+import '../../features/image_analysis/presentation/screens/image_analysis_result_screen.dart';
+import '../../features/image_analysis/presentation/screens/image_scan_screen.dart';
 
 import 'app_routes.dart';
 
@@ -36,8 +38,11 @@ class AppRouter {
       ),
       GoRoute(
         path: AppRoutes.imageAnalysis,
-        builder: (context, state) =>
-            const _PlaceholderScreen(title: 'Análisis de imagen'),
+        builder: (context, state) => const ImageScanScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.imageAnalysisResult,
+        builder: (context, state) => const ImageAnalysisResultScreen(),
       ),
       GoRoute(
         path: AppRoutes.interview,
