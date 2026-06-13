@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
+import '../../features/authentication/presentation/screens/login_screen.dart';
+import '../../features/authentication/presentation/screens/register_screen.dart';
 
 import 'app_routes.dart';
 
@@ -14,19 +16,18 @@ class AppRouter {
         path: AppRoutes.splash,
         builder: (context, state) => const _PlaceholderScreen(title: 'Splash'),
       ),
-        GoRoute(
+      GoRoute(
         path: AppRoutes.onboarding,
         builder: (context, state) =>
             const OnboardingScreen(),
       ),
       GoRoute(
         path: AppRoutes.login,
-        builder: (context, state) => const _PlaceholderScreen(title: 'Login'),
+        builder: (context, state) => const LoginScreen(),
       ),
       GoRoute(
         path: AppRoutes.register,
-        builder: (context, state) =>
-            const _PlaceholderScreen(title: 'Registro'),
+        builder: (context, state) => const RegisterScreen(),
       ),
       GoRoute(
         path: AppRoutes.dashboard,
