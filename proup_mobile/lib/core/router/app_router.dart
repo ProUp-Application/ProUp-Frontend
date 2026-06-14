@@ -9,6 +9,7 @@ import '../../features/image_analysis/presentation/screens/image_scan_screen.dar
 import '../../features/interview/presentation/screens/interview_feedback_screen.dart';
 import '../../features/interview/presentation/screens/interview_selection_screen.dart';
 import '../../features/interview/presentation/screens/interview_session_screen.dart';
+import '../../features/chatbot/presentation/screens/chatbot_screen.dart';
 
 import 'app_routes.dart';
 
@@ -61,7 +62,7 @@ class AppRouter {
       ),
       GoRoute(
         path: AppRoutes.chatbot,
-        builder: (context, state) => const _PlaceholderScreen(title: 'Chatbot'),
+        builder: (context, state) => const ChatbotScreen(),
       ),
       GoRoute(
         path: AppRoutes.progress,
