@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injector.dart';
-import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/proup_widgets.dart';
 import '../../../../core/widgets/score_indicators.dart';
 import '../../data/analysis_repository.dart';
 import '../../data/models/analysis_models.dart';
@@ -20,54 +21,168 @@ class ResultsScreen extends StatelessWidget {
     'SOFT_SKILLS': 'Habilidades blandas',
   };
 
+  static const _formalityLabels = {
+    'CASUAL': 'Casual',
+    'SEMI_FORMAL': 'Semi formal',
+    'FORMAL': 'Formal',
+  };
+
   @override
   Widget build(BuildContext context) {
     final result = analysis.result;
+    if (result == null) {
+      return const Scaffold(body: Center(child: Text('Sin resultado')));
+    }
+
+    final recs = [...result.recommendations]..sort((a, b) => a.priority.compareTo(b.priority));
+    final key = recs.isNotEmpty ? recs.first : null;
+    final rest = recs.length > 1 ? recs.sublist(1) : <RecommendationModel>[];
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Resultado del análisis')),
-      body: result == null
-          ? const Center(child: Text('Sin resultado'))
-          : ListView(
-              padding: const EdgeInsets.all(20),
+      appBar: AppBar(title: const Text('Tu análisis')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+        children: [
+          // Score hero
+          AmbientCard(
+            padding: const EdgeInsets.symmetric(vertical: 28),
+            child: Column(
               children: [
-                Center(child: ScoreRing(score: result.overallScore)),
-                const SizedBox(height: 8),
-                Center(
-                  child: Text(scoreBandLabel(result.overallScore),
-                      style: Theme.of(context).textTheme.titleMedium),
-                ),
-                const SizedBox(height: 24),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        ScoreBar(label: 'Rostro y expresión', score: result.faceScore),
-                        ScoreBar(label: 'Vestimenta', score: result.clothingScore),
-                        ScoreBar(label: 'Postura', score: result.postureScore),
-                        ScoreBar(label: 'Entorno e iluminación', score: result.contextScore),
-                      ],
-                    ),
+                ScoreRing(score: result.overallScore, color: AppColors.primary, size: 168),
+                const SizedBox(height: 20),
+                Text('Análisis de Desempeño',
+                    style: Theme.of(context).textTheme.headlineSmall),
+                const SizedBox(height: 4),
+                Text('Nivel: ${scoreBandLabel(result.overallScore)}',
+                    style: Theme.of(context).textTheme.bodyMedium),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Recomendación clave
+          if (key != null)
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: AppColors.ambientShadow,
+                border: const Border(left: BorderSide(color: AppColors.primary, width: 5)),
+              ),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.lightbulb, color: AppColors.primary, size: 20),
+                      const SizedBox(width: 8),
+                      Text('Recomendación Clave',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(color: AppColors.primary)),
+                    ],
                   ),
+                  const SizedBox(height: 10),
+                  Text('"${key.advice}"', style: Theme.of(context).textTheme.bodyMedium),
+                ],
+              ),
+            ),
+          const SizedBox(height: 16),
+
+          // Tiles
+          Row(
+            children: [
+              Expanded(
+                child: _StatTile(
+                  label: 'Puntaje global',
+                  value: '${result.overallScore}',
+                  background: AppColors.primary,
                 ),
-                const SizedBox(height: 24),
-                Text('Recomendaciones para ti',
-                    style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 8),
-                ...result.recommendations.map(
-                  (r) => _RecommendationCard(
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _StatTile(
+                  label: 'Formalidad',
+                  value: _formalityLabels[result.clothingFormality] ?? '—',
+                  background: AppColors.tertiaryContainer,
+                  small: true,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // Desglose por categoría
+          Text('Desglose', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 8),
+          AmbientCard(
+            child: Column(
+              children: [
+                ScoreBar(label: 'Rostro y expresión', score: result.faceScore),
+                ScoreBar(label: 'Vestimenta', score: result.clothingScore),
+                ScoreBar(label: 'Postura', score: result.postureScore),
+                ScoreBar(label: 'Entorno e iluminación', score: result.contextScore),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Resto de recomendaciones
+          if (rest.isNotEmpty) ...[
+            Text('Más recomendaciones', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            ...rest.map((r) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _RecommendationCard(
                     title: _categoryLabels[r.category] ?? r.category,
                     advice: r.advice,
                     recommendationId: r.id,
                   ),
-                ),
-                const SizedBox(height: 24),
-                FilledButton(
-                  onPressed: () => context.go('/home'),
-                  child: const Text('Volver al inicio'),
-                ),
-              ],
-            ),
+                )),
+            const SizedBox(height: 8),
+          ],
+
+          FilledButton(
+            onPressed: () => context.go('/home'),
+            child: const Text('Volver al inicio'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatTile extends StatelessWidget {
+  const _StatTile({
+    required this.label,
+    required this.value,
+    required this.background,
+    this.small = false,
+  });
+
+  final String label;
+  final String value;
+  final Color background;
+  final bool small;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(18)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13)),
+          const SizedBox(height: 6),
+          Text(value,
+              style: TextStyle(
+                  color: Colors.white, fontSize: small ? 20 : 26, fontWeight: FontWeight.w800)),
+        ],
+      ),
     );
   }
 }
@@ -95,43 +210,39 @@ class _RecommendationCardState extends State<_RecommendationCard> {
     try {
       await getIt<AnalysisRepository>()
           .sendFeedback(recommendationId: widget.recommendationId, rating: rating);
-    } catch (_) {/* feedback no crítico */}
+    } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(widget.title,
-                style: const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.primaryColor)),
-            const SizedBox(height: 6),
-            Text(widget.advice, style: Theme.of(context).textTheme.bodyMedium),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Text('¿Te fue útil?', style: Theme.of(context).textTheme.bodySmall),
-                const SizedBox(width: 8),
-                for (var i = 1; i <= 5; i++)
-                  IconButton(
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () => _rate(i),
-                    icon: Icon(
+    return AmbientCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(widget.title,
+              style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary)),
+          const SizedBox(height: 6),
+          Text(widget.advice, style: Theme.of(context).textTheme.bodyMedium),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text('¿Te fue útil?', style: Theme.of(context).textTheme.bodySmall),
+              const SizedBox(width: 8),
+              for (var i = 1; i <= 5; i++)
+                GestureDetector(
+                  onTap: () => _rate(i),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: Icon(
                       (_rating ?? 0) >= i ? Icons.star : Icons.star_border,
                       size: 20,
-                      color: const Color(0xFFE0A100),
+                      color: AppColors.scoreMid,
                     ),
                   ),
-              ],
-            ),
-          ],
-        ),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }

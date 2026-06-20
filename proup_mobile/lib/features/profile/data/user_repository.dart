@@ -6,6 +6,12 @@ class UserRepository {
 
   final ApiClient _api;
 
+  Future<List<ProfessionOption>> getProfessions() async {
+    final res = await _api.get('/professions');
+    final items = (res.data as Map<String, dynamic>)['professions'] as List<dynamic>? ?? [];
+    return items.map((e) => ProfessionOption.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
   Future<ProfileModel?> getProfile() async {
     final res = await _api.get('/users/me/profile');
     final p = (res.data as Map<String, dynamic>)['profile'];

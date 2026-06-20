@@ -1,5 +1,6 @@
 class ProfileModel {
   const ProfileModel({
+    this.profession,
     this.targetSector,
     this.experienceLevel,
     this.careerGoals,
@@ -7,6 +8,7 @@ class ProfileModel {
     this.location,
   });
 
+  final String? profession;
   final String? targetSector;
   final String? experienceLevel;
   final String? careerGoals;
@@ -14,6 +16,7 @@ class ProfileModel {
   final String? location;
 
   factory ProfileModel.fromJson(Map<String, dynamic> json) => ProfileModel(
+        profession: json['profession'] as String?,
         targetSector: json['targetSector'] as String?,
         experienceLevel: json['experienceLevel'] as String?,
         careerGoals: json['careerGoals'] as String?,
@@ -22,12 +25,22 @@ class ProfileModel {
       );
 
   Map<String, dynamic> toJson() => {
+        if (profession != null) 'profession': profession,
         if (targetSector != null) 'targetSector': targetSector,
         if (experienceLevel != null) 'experienceLevel': experienceLevel,
         if (careerGoals != null) 'careerGoals': careerGoals,
         if (preferredJobType != null) 'preferredJobType': preferredJobType,
         if (location != null) 'location': location,
       };
+}
+
+class ProfessionOption {
+  const ProfessionOption({required this.id, required this.label});
+  final String id;
+  final String label;
+
+  factory ProfessionOption.fromJson(Map<String, dynamic> json) =>
+      ProfessionOption(id: json['id'] as String, label: json['label'] as String);
 }
 
 class UserModel {

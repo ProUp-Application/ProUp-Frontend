@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/di/injector.dart';
-import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/proup_widgets.dart';
 import '../../../../core/widgets/score_indicators.dart';
 import '../../../analysis/data/analysis_repository.dart';
 import '../../../analysis/data/models/analysis_models.dart';
@@ -27,107 +28,259 @@ class _ProgressScreenState extends State<ProgressScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Mi progreso')),
-      body: RefreshIndicator(
-        onRefresh: () async => _reload(),
-        child: FutureBuilder<List<AnalysisModel>>(
-          future: _future,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            final items = snapshot.data ?? [];
-            if (items.isEmpty) {
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: () async => _reload(),
+          child: FutureBuilder<List<AnalysisModel>>(
+            future: _future,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final items = snapshot.data ?? [];
+              final withResult = items.where((a) => a.result != null).toList();
+
               return ListView(
-                children: const [
-                  SizedBox(height: 120),
-                  Icon(Icons.insights, size: 80, color: Color(0xFFB0B4C2)),
-                  SizedBox(height: 16),
-                  Center(child: Text('Aún no tienes análisis.\n¡Escanea tu imagen para empezar!',
-                      textAlign: TextAlign.center)),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+                children: [
+                  Text('Tu Evolución', style: Theme.of(context).textTheme.headlineMedium),
+                  const SizedBox(height: 6),
+                  Text('Analizamos tu desempeño para llevar tu carrera al siguiente nivel.',
+                      style: Theme.of(context).textTheme.bodyMedium),
+                  const SizedBox(height: 24),
+
+                  if (withResult.isEmpty)
+                    _EmptyState()
+                  else ...[
+                    _ScoreChartCard(analyses: withResult),
+                    const SizedBox(height: 16),
+                    _VsIndustryCard(level: withResult.first.overallScore),
+                    const SizedBox(height: 24),
+                    Text('Historial de Análisis', style: Theme.of(context).textTheme.titleLarge),
+                    const SizedBox(height: 8),
+                    ...items.map((a) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _HistoryItem(analysis: a),
+                        )),
+                    const SizedBox(height: 12),
+                    _ProfileStrengthCard(score: withResult.first.overallScore),
+                  ],
                 ],
               );
-            }
-
-            final scores = items.where((a) => a.result != null).map((a) => a.overallScore).toList();
-            final avg = scores.isEmpty ? 0 : (scores.reduce((a, b) => a + b) / scores.length).round();
-            final latest = items.first.overallScore;
-
-            return ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                Row(
-                  children: [
-                    Expanded(child: _StatCard(label: 'Último puntaje', value: latest)),
-                    const SizedBox(width: 12),
-                    Expanded(child: _StatCard(label: 'Promedio', value: avg)),
-                    const SizedBox(width: 12),
-                    Expanded(child: _StatCard(label: 'Análisis', value: items.length, isScore: false)),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                Text('Historial', style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 8),
-                ...items.map((a) => _HistoryTile(analysis: a)),
-              ],
-            );
-          },
+            },
+          ),
         ),
       ),
     );
   }
 }
 
-class _StatCard extends StatelessWidget {
-  const _StatCard({required this.label, required this.value, this.isScore = true});
+class _EmptyState extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 80),
+      child: Column(
+        children: [
+          const Icon(Icons.insights, size: 80, color: AppColors.outlineVariant),
+          const SizedBox(height: 16),
+          Text('Aún no tienes análisis.\n¡Escanea tu imagen para empezar!',
+              textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium),
+        ],
+      ),
+    );
+  }
+}
 
-  final String label;
-  final int value;
-  final bool isScore;
+class _ScoreChartCard extends StatelessWidget {
+  const _ScoreChartCard({required this.analyses});
+
+  final List<AnalysisModel> analyses;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-        child: Column(
-          children: [
-            Text('$value',
-                style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                    color: isScore ? scoreColor(value) : AppTheme.primaryColor)),
-            const SizedBox(height: 4),
-            Text(label, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
-          ],
-        ),
+    // Últimos 7 análisis, del más antiguo al más reciente
+    final recent = analyses.take(7).toList().reversed.toList();
+    final delta = recent.length >= 2 ? recent.last.overallScore - recent.first.overallScore : 0;
+
+    return AmbientCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Evolución del Puntaje', style: Theme.of(context).textTheme.titleMedium),
+                  Text('Últimos análisis', style: Theme.of(context).textTheme.labelSmall),
+                ],
+              ),
+              Text('${delta >= 0 ? '+' : ''}$delta%',
+                  style: const TextStyle(color: AppColors.tertiary, fontWeight: FontWeight.w800, fontSize: 18)),
+            ],
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            height: 160,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                for (var i = 0; i < recent.length; i++)
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: FractionallySizedBox(
+                        heightFactor: (recent[i].overallScore / 100).clamp(0.05, 1.0),
+                        alignment: Alignment.bottomCenter,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: i == recent.length - 1
+                                ? AppColors.primary
+                                : (i == recent.length - 2 ? AppColors.primaryContainer : AppColors.surfaceContainer),
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _HistoryTile extends StatelessWidget {
-  const _HistoryTile({required this.analysis});
+class _VsIndustryCard extends StatelessWidget {
+  const _VsIndustryCard({required this.level});
+
+  final int level;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(color: AppColors.primaryContainer, borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('VS. Industria',
+              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text('Comparativa referencial con profesionales en Lima.',
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 14)),
+          const SizedBox(height: 20),
+          _bar('Tu Nivel', level, 1.0),
+          const SizedBox(height: 14),
+          _bar('Promedio Global', 72, 0.5),
+        ],
+      ),
+    );
+  }
+
+  Widget _bar(String label, int value, double opacity) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 13)),
+            Text('$value/100', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: LinearProgressIndicator(
+            value: value / 100,
+            minHeight: 8,
+            backgroundColor: Colors.white.withValues(alpha: 0.2),
+            valueColor: AlwaysStoppedAnimation(Colors.white.withValues(alpha: opacity)),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HistoryItem extends StatelessWidget {
+  const _HistoryItem({required this.analysis});
 
   final AnalysisModel analysis;
 
   @override
   Widget build(BuildContext context) {
     final d = analysis.createdAt;
-    final date = '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
-    final type = analysis.captureType == 'SELFIE' ? 'Selfie' : 'Cuerpo entero';
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: scoreColor(analysis.overallScore).withValues(alpha: 0.15),
-          child: Text('${analysis.overallScore}',
-              style: TextStyle(fontWeight: FontWeight.w700, color: scoreColor(analysis.overallScore))),
-        ),
-        title: Text(type),
-        subtitle: Text(date),
-        trailing: Text(scoreBandLabel(analysis.overallScore),
-            style: Theme.of(context).textTheme.bodySmall),
+    final date = '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year} • '
+        '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+    final type = analysis.captureType == 'SELFIE' ? 'Análisis de Selfie' : 'Análisis de Cuerpo Entero';
+    final score = analysis.overallScore;
+    return AmbientCard(
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          IconBadge(icon: Icons.center_focus_strong, color: AppColors.primary, size: 44),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(type, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                Text(date, style: Theme.of(context).textTheme.labelSmall),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text('$score/100',
+                  style: TextStyle(fontWeight: FontWeight.w700, color: scoreColor(score), fontSize: 16)),
+              const SizedBox(height: 2),
+              StatusChip(
+                label: scoreBandLabel(score),
+                background: scoreColor(score).withValues(alpha: 0.12),
+                foreground: scoreColor(score),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileStrengthCard extends StatelessWidget {
+  const _ProfileStrengthCard({required this.score});
+
+  final int score;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(color: AppColors.surfaceContainer, borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Fortaleza de Perfil', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: score / 100,
+              minHeight: 6,
+              backgroundColor: AppColors.surfaceContainerHighest,
+              valueColor: const AlwaysStoppedAnimation(AppColors.tertiaryContainer),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text('$score% de tu imagen profesional optimizada',
+              style: Theme.of(context).textTheme.bodySmall),
+        ],
       ),
     );
   }

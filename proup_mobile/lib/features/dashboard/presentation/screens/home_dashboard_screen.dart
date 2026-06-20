@@ -3,7 +3,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injector.dart';
 import '../../../../core/router/app_routes.dart';
-import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/proup_logo.dart';
+import '../../../../core/widgets/proup_widgets.dart';
 import '../../../auth/data/auth_repository.dart';
 import '../../../auth/data/models/user_model.dart';
 
@@ -38,40 +40,81 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     return Scaffold(
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
           children: [
-            Text('Hola${name.isNotEmpty ? ', $name' : ''} 👋',
-                style: Theme.of(context).textTheme.headlineMedium),
-            const SizedBox(height: 4),
-            Text('Mejora tu imagen profesional y tu empleabilidad',
+            // Barra superior: marca + campana
+            Row(
+              children: [
+                const ProupLogo(size: 30),
+                const SizedBox(width: 8),
+                Text('ProUp',
+                    style: Theme.of(context)
+                        .textTheme
+                        .headlineSmall
+                        ?.copyWith(color: AppColors.primary, fontWeight: FontWeight.w800)),
+                const Spacer(),
+                IconButton(
+                  onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('No tienes notificaciones nuevas')),
+                  ),
+                  icon: const Icon(Icons.notifications_none, color: AppColors.primary),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Saludo
+            RichText(
+              text: TextSpan(
+                style: Theme.of(context).textTheme.headlineMedium,
+                children: [
+                  const TextSpan(text: 'Hola, '),
+                  TextSpan(
+                    text: name.isNotEmpty ? name : 'profesional',
+                    style: const TextStyle(color: AppColors.primary),
+                  ),
+                  const TextSpan(text: '!'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text('Tu mentor IA está listo para la sesión de hoy.',
                 style: Theme.of(context).textTheme.bodyMedium),
             const SizedBox(height: 24),
-            _ActionCard(
-              icon: Icons.center_focus_strong,
-              color: AppTheme.primaryColor,
-              title: 'Analizar mi imagen',
-              subtitle: 'Escanea tu rostro o vestimenta y recibe un puntaje',
-              onTap: () => widget.onSelectTab(1),
+
+            // Hero: escaneo de imagen
+            HeroCard(
+              tag: 'Recomendado',
+              title: 'Escaneo de Imagen',
+              subtitle:
+                  'Analiza tu lenguaje corporal y vestimenta profesional con nuestra IA avanzada antes de tu gran entrevista.',
+              actionLabel: 'Empezar Análisis',
+              onAction: () => widget.onSelectTab(1),
             ),
+            const SizedBox(height: 16),
+
+            // Cards de acción
             _ActionCard(
-              icon: Icons.record_voice_over,
-              color: AppTheme.tertiaryColor,
-              title: 'Simular una entrevista',
-              subtitle: 'Practica con preguntas reales y recibe feedback',
+              icon: Icons.video_camera_front_outlined,
+              color: AppColors.primary,
+              title: 'Simulador de Entrevista',
+              subtitle: 'Practica con nuestra IA personalizada para tu sector.',
               onTap: () => context.push(AppRoutes.interview),
             ),
+            const SizedBox(height: 14),
             _ActionCard(
-              icon: Icons.chat_bubble,
-              color: const Color(0xFF7A5AF8),
-              title: 'Hablar con el asesor IA',
-              subtitle: 'Resuelve tus dudas de empleabilidad',
+              icon: Icons.auto_awesome,
+              color: AppColors.tertiaryContainer,
+              title: 'Asesor IA',
+              subtitle: 'Resuelve tus dudas de empleabilidad al instante.',
               onTap: () => widget.onSelectTab(2),
             ),
+            const SizedBox(height: 14),
             _ActionCard(
               icon: Icons.insights,
-              color: const Color(0xFFE0A100),
-              title: 'Ver mi progreso',
-              subtitle: 'Revisa tu evolución a lo largo del tiempo',
+              color: AppColors.scoreMid,
+              title: 'Mi Progreso',
+              subtitle: 'Revisa tu evolución y tu historial de análisis.',
               onTap: () => widget.onSelectTab(3),
             ),
           ],
@@ -98,38 +141,24 @@ class _ActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(icon, color: color, size: 28),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 2),
-                    Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right, color: Color(0xFFB0B4C2)),
-            ],
+    return AmbientCard(
+      onTap: onTap,
+      child: Row(
+        children: [
+          IconBadge(icon: icon, color: color),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 3),
+                Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+              ],
+            ),
           ),
-        ),
+          const Icon(Icons.chevron_right, color: AppColors.outline),
+        ],
       ),
     );
   }

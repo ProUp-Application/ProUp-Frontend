@@ -15,12 +15,14 @@ class AuthRepository {
     required String password,
     required String firstName,
     required String lastName,
+    String? profession,
   }) async {
     final res = await _api.post('/auth/register', data: {
       'email': email,
       'password': password,
       'firstName': firstName,
       'lastName': lastName,
+      if (profession != null) 'profession': profession,
       'acceptedTerms': true,
     });
     final auth = AuthResult.fromJson(res.data as Map<String, dynamic>);

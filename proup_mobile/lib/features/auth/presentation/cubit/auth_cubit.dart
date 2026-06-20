@@ -24,6 +24,7 @@ class AuthCubit extends Cubit<AuthState> {
     required String password,
     required String firstName,
     required String lastName,
+    String? profession,
   }) async {
     emit(state.copyWith(status: AuthStatus.loading));
     try {
@@ -32,6 +33,7 @@ class AuthCubit extends Cubit<AuthState> {
         password: password,
         firstName: firstName,
         lastName: lastName,
+        profession: profession,
       );
       emit(AuthState(status: AuthStatus.authenticated, user: user));
     } catch (e) {

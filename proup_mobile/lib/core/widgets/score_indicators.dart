@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 
 Color scoreColor(int score) {
-  if (score < 50) return const Color(0xFFD23B3B);
-  if (score < 75) return const Color(0xFFE0A100);
-  return AppTheme.tertiaryColor;
+  if (score < 50) return AppColors.scoreLow;
+  if (score < 75) return AppColors.scoreMid;
+  return AppColors.scoreHigh;
 }
 
 String scoreBandLabel(int score) {
@@ -16,13 +16,15 @@ String scoreBandLabel(int score) {
 
 /// Anillo circular con el puntaje global.
 class ScoreRing extends StatelessWidget {
-  const ScoreRing({super.key, required this.score, this.size = 140});
+  const ScoreRing({super.key, required this.score, this.size = 150, this.color});
 
   final int score;
   final double size;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
+    final c = color ?? scoreColor(score);
     return SizedBox(
       width: size,
       height: size,
@@ -35,8 +37,9 @@ class ScoreRing extends StatelessWidget {
             child: CircularProgressIndicator(
               value: score / 100,
               strokeWidth: 12,
-              backgroundColor: const Color(0xFFE2E5F0),
-              valueColor: AlwaysStoppedAnimation(scoreColor(score)),
+              strokeCap: StrokeCap.round,
+              backgroundColor: AppColors.surfaceContainerHigh,
+              valueColor: AlwaysStoppedAnimation(c),
             ),
           ),
           Column(
@@ -44,10 +47,16 @@ class ScoreRing extends StatelessWidget {
             children: [
               Text('$score',
                   style: TextStyle(
-                      fontSize: size * 0.3,
+                      fontSize: size * 0.32,
+                      height: 1,
                       fontWeight: FontWeight.w800,
-                      color: AppTheme.textColor)),
-              Text('/ 100', style: Theme.of(context).textTheme.bodySmall),
+                      color: AppColors.onSurface)),
+              Text('SCORE',
+                  style: TextStyle(
+                      fontSize: 11,
+                      letterSpacing: 2,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.onSurfaceVariant)),
             ],
           ),
         ],
@@ -84,7 +93,7 @@ class ScoreBar extends StatelessWidget {
             child: LinearProgressIndicator(
               value: score / 100,
               minHeight: 8,
-              backgroundColor: const Color(0xFFE2E5F0),
+              backgroundColor: AppColors.surfaceContainerHigh,
               valueColor: AlwaysStoppedAnimation(scoreColor(score)),
             ),
           ),

@@ -14,7 +14,6 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  static const _sectors = ['Tecnología', 'Finanzas', 'Banca', 'Educación', 'Salud', 'Marketing', 'Creativo'];
   static const _levels = {
     'STUDENT': 'Estudiante',
     'JUNIOR': 'Junior',
@@ -24,7 +23,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   final _location = TextEditingController();
   final _goals = TextEditingController();
-  String? _sector;
+  List<ProfessionOption> _professions = [];
+  String? _profession;
   String? _level;
   UserModel? _user;
   bool _loading = true;
@@ -47,10 +47,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final user = await getIt<AuthRepository>().me();
       final profile = await getIt<UserRepository>().getProfile();
+      final professions = await getIt<UserRepository>().getProfessions();
       if (!mounted) return;
       setState(() {
         _user = user;
-        _sector = profile?.targetSector;
+        _professions = professions;
+        _profession = profile?.profession;
         _level = profile?.experienceLevel;
         _location.text = profile?.location ?? '';
         _goals.text = profile?.careerGoals ?? '';
@@ -65,7 +67,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _saving = true);
     try {
       await getIt<UserRepository>().updateProfile(ProfileModel(
-        targetSector: _sector,
+        profession: _profession,
         experienceLevel: _level,
         location: _location.text.trim().isEmpty ? null : _location.text.trim(),
         careerGoals: _goals.text.trim().isEmpty ? null : _goals.text.trim(),
@@ -153,10 +155,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Text('Datos profesionales', style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  initialValue: _sectors.contains(_sector) ? _sector : null,
-                  decoration: const InputDecoration(labelText: 'Sector objetivo'),
-                  items: _sectors.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-                  onChanged: (v) => setState(() => _sector = v),
+                  initialValue: _professions.any((p) => p.id == _profession) ? _profession : null,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Profesión'),
+                  items: _professions
+                      .map((p) => DropdownMenuItem(
+                          value: p.id, child: Text(p.label, overflow: TextOverflow.ellipsis)))
+                      .toList(),
+                  onChanged: (v) => setState(() => _profession = v),
                 ),
                 const SizedBox(height: 14),
                 DropdownButtonFormField<String>(

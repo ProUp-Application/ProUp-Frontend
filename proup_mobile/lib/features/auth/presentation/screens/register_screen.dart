@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/di/injector.dart';
+import '../../../profile/data/user_repository.dart';
+import '../../data/models/user_model.dart';
 import '../cubit/auth_cubit.dart';
 import '../cubit/auth_state.dart';
 
@@ -19,6 +22,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   bool _accepted = false;
+  List<ProfessionOption> _professions = [];
+  String? _profession;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfessions();
+  }
+
+  Future<void> _loadProfessions() async {
+    try {
+      final list = await getIt<UserRepository>().getProfessions();
+      if (mounted) setState(() => _professions = list);
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
@@ -42,6 +60,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             password: _password.text,
             firstName: _firstName.text.trim(),
             lastName: _lastName.text.trim(),
+            profession: _profession,
           );
     }
   }
@@ -82,17 +101,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     controller: _email,
                     keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(labelText: 'Correo electrónico'),
-                    validator: (v) =>
-                        (v == null || !v.contains('@')) ? 'Correo inválido' : null,
+                    validator: (v) => (v == null || !v.contains('@')) ? 'Correo inválido' : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _password,
                     obscureText: true,
+                    decoration: const InputDecoration(labelText: 'Contraseña (mín. 8 caracteres)'),
+                    validator: (v) => (v == null || v.length < 8) ? 'Mínimo 8 caracteres' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    initialValue: _profession,
+                    isExpanded: true,
                     decoration: const InputDecoration(
-                        labelText: 'Contraseña (mín. 8 caracteres)'),
-                    validator: (v) =>
-                        (v == null || v.length < 8) ? 'Mínimo 8 caracteres' : null,
+                      labelText: '¿Cuál es tu profesión?',
+                      prefixIcon: Icon(Icons.work_outline, size: 20),
+                    ),
+                    items: _professions
+                        .map((p) => DropdownMenuItem(value: p.id, child: Text(p.label, overflow: TextOverflow.ellipsis)))
+                        .toList(),
+                    onChanged: (v) => setState(() => _profession = v),
+                    validator: (v) => v == null ? 'Selecciona tu profesión' : null,
                   ),
                   const SizedBox(height: 8),
                   CheckboxListTile(
@@ -105,7 +135,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       style: TextStyle(fontSize: 13),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   BlocBuilder<AuthCubit, AuthState>(
                     builder: (context, state) => FilledButton(
                       onPressed: state.isLoading ? null : _submit,
@@ -113,8 +143,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ? const SizedBox(
                               height: 22,
                               width: 22,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white))
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                           : const Text('Registrarme'),
                     ),
                   ),

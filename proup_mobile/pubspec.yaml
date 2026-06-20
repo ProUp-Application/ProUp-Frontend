@@ -44,6 +44,8 @@ dependencies:
   google_fonts: ^6.2.1
   shared_preferences: ^2.3.5
   image_picker: ^1.1.2
+  # Detección de rostro/persona on-device (Android/iOS) para validar la imagen
+  google_mlkit_face_detection: ^0.13.1
 
 dev_dependencies:
   flutter_test:
