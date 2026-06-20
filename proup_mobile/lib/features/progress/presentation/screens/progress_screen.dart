@@ -55,6 +55,8 @@ class _ProgressScreenState extends State<ProgressScreen> {
                     _ScoreChartCard(analyses: withResult),
                     const SizedBox(height: 16),
                     _VsIndustryCard(level: withResult.first.overallScore),
+                    const SizedBox(height: 16),
+                    _CategoryAveragesCard(analyses: withResult),
                     const SizedBox(height: 24),
                     Text('Historial de Análisis', style: Theme.of(context).textTheme.titleLarge),
                     const SizedBox(height: 8),
@@ -148,6 +150,38 @@ class _ScoreChartCard extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryAveragesCard extends StatelessWidget {
+  const _CategoryAveragesCard({required this.analyses});
+
+  final List<AnalysisModel> analyses;
+
+  int _avg(int Function(AnalysisResultModel r) sel) {
+    final vals = analyses.where((a) => a.result != null).map((a) => sel(a.result!)).toList();
+    if (vals.isEmpty) return 0;
+    return (vals.reduce((a, b) => a + b) / vals.length).round();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AmbientCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Promedio por categoría', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 4),
+          Text('Tu desempeño promedio en todos tus análisis',
+              style: Theme.of(context).textTheme.labelSmall),
+          const SizedBox(height: 8),
+          ScoreBar(label: 'Rostro y expresión', score: _avg((r) => r.faceScore)),
+          ScoreBar(label: 'Vestimenta', score: _avg((r) => r.clothingScore)),
+          ScoreBar(label: 'Postura', score: _avg((r) => r.postureScore)),
+          ScoreBar(label: 'Entorno e iluminación', score: _avg((r) => r.contextScore)),
         ],
       ),
     );
