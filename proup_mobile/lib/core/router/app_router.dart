@@ -1,101 +1,75 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
-import '../../features/authentication/presentation/screens/login_screen.dart';
-import '../../features/authentication/presentation/screens/register_screen.dart';
-import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
-import '../../features/image_analysis/presentation/screens/image_analysis_result_screen.dart';
-import '../../features/image_analysis/presentation/screens/image_scan_screen.dart';
+
+import '../auth/auth_notifier.dart';
+import '../di/injector.dart';
+import '../../features/analysis/data/models/analysis_models.dart';
+import '../../features/analysis/presentation/screens/results_screen.dart';
+import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/auth/presentation/screens/register_screen.dart';
+import '../../features/dashboard/presentation/screens/home_shell.dart';
+import '../../features/interview/data/models/interview_models.dart';
 import '../../features/interview/presentation/screens/interview_feedback_screen.dart';
 import '../../features/interview/presentation/screens/interview_selection_screen.dart';
 import '../../features/interview/presentation/screens/interview_session_screen.dart';
-import '../../features/chatbot/presentation/screens/chatbot_screen.dart';
-
+import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import 'app_routes.dart';
 
 class AppRouter {
   const AppRouter._();
 
-  static final GoRouter router = GoRouter(
-    initialLocation: AppRoutes.onboarding,
-    routes: [
-      GoRoute(
-        path: AppRoutes.splash,
-        builder: (context, state) => const _PlaceholderScreen(title: 'Splash'),
-      ),
-      GoRoute(
-        path: AppRoutes.onboarding,
-        builder: (context, state) =>
-            const OnboardingScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.login,
-        builder: (context, state) => const LoginScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.register,
-        builder: (context, state) => const RegisterScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.dashboard,
-        builder: (context, state) => const DashboardScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.imageAnalysis,
-        builder: (context, state) => const ImageScanScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.imageAnalysisResult,
-        builder: (context, state) => const ImageAnalysisResultScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.interview,
-        builder: (context, state) => const InterviewSelectionScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.interviewSession,
-        builder: (context, state) => const InterviewSessionScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.interviewFeedback,
-        builder: (context, state) => const InterviewFeedbackScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.chatbot,
-        builder: (context, state) => const ChatbotScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.progress,
-        builder: (context, state) =>
-            const _PlaceholderScreen(title: 'Progreso'),
-      ),
-      GoRoute(
-        path: AppRoutes.profile,
-        builder: (context, state) => const _PlaceholderScreen(title: 'Perfil'),
-      ),
-    ],
-  );
-}
+  static final GoRouter router = _build();
 
-class _PlaceholderScreen extends StatelessWidget {
-  const _PlaceholderScreen({
-    required this.title,
-  });
+  static GoRouter _build() {
+    final auth = getIt<AuthNotifier>();
+    const publicRoutes = {
+      AppRoutes.onboarding,
+      AppRoutes.login,
+      AppRoutes.register,
+      AppRoutes.splash,
+    };
 
-  final String title;
+    return GoRouter(
+      initialLocation: AppRoutes.onboarding,
+      refreshListenable: auth,
+      redirect: (context, state) {
+        final authed = auth.isAuthenticated;
+        final loc = state.matchedLocation;
+        final isPublic = publicRoutes.contains(loc);
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-      ),
-      body: Center(
-        child: Text(
-          title,
-          style: Theme.of(context).textTheme.headlineMedium,
+        if (!authed && !isPublic) return AppRoutes.login;
+        if (authed && isPublic) return AppRoutes.home;
+        return null;
+      },
+      routes: [
+        GoRoute(path: AppRoutes.splash, builder: (_, __) => const _Splash()),
+        GoRoute(path: AppRoutes.onboarding, builder: (_, __) => const OnboardingScreen()),
+        GoRoute(path: AppRoutes.login, builder: (_, __) => const LoginScreen()),
+        GoRoute(path: AppRoutes.register, builder: (_, __) => const RegisterScreen()),
+        GoRoute(path: AppRoutes.home, builder: (_, __) => const HomeShell()),
+        GoRoute(
+          path: AppRoutes.analysisResult,
+          builder: (_, state) => ResultsScreen(analysis: state.extra as AnalysisModel),
         ),
-      ),
+        GoRoute(path: AppRoutes.interview, builder: (_, __) => const InterviewSelectionScreen()),
+        GoRoute(
+          path: AppRoutes.interviewSession,
+          builder: (_, state) => InterviewSessionScreen(start: state.extra as InterviewStart),
+        ),
+        GoRoute(
+          path: AppRoutes.interviewFeedback,
+          builder: (_, state) =>
+              InterviewFeedbackScreen(simulation: state.extra as InterviewSimulationModel),
+        ),
+      ],
     );
   }
+}
+
+class _Splash extends StatelessWidget {
+  const _Splash();
+
+  @override
+  Widget build(BuildContext context) =>
+      const Scaffold(body: Center(child: CircularProgressIndicator()));
 }

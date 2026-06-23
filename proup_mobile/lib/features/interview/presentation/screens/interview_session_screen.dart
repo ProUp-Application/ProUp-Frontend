@@ -1,199 +1,112 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/di/injector.dart';
 import '../../../../core/router/app_routes.dart';
+import '../../data/interview_repository.dart';
+import '../../data/models/interview_models.dart';
 
-class InterviewSessionScreen extends StatelessWidget {
-  const InterviewSessionScreen({super.key});
+class InterviewSessionScreen extends StatefulWidget {
+  const InterviewSessionScreen({super.key, required this.start});
+
+  final InterviewStart start;
+
+  @override
+  State<InterviewSessionScreen> createState() => _InterviewSessionScreenState();
+}
+
+class _InterviewSessionScreenState extends State<InterviewSessionScreen> {
+  late final List<TextEditingController> _controllers;
+  double _confidence = 60;
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controllers = widget.start.questions.map((_) => TextEditingController()).toList();
+  }
+
+  @override
+  void dispose() {
+    for (final c in _controllers) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final responses = <Map<String, String>>[];
+    for (var i = 0; i < widget.start.questions.length; i++) {
+      final answer = _controllers[i].text.trim();
+      if (answer.isNotEmpty) {
+        responses.add({'question': widget.start.questions[i], 'answer': answer});
+      }
+    }
+    if (responses.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Responde al menos una pregunta')));
+      return;
+    }
+
+    setState(() => _loading = true);
+    try {
+      final result = await getIt<InterviewRepository>().submit(
+        id: widget.start.id,
+        responses: responses,
+        confidenceScore: _confidence.round(),
+        nonVerbalScore: _confidence.round(),
+      );
+      if (!mounted) return;
+      context.pushReplacement(AppRoutes.interviewFeedback, extra: result);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('No se pudo enviar la entrevista')));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FF),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _Header(onClose: () => context.go(AppRoutes.interview)),
-              const SizedBox(height: 20),
-              const _CameraPanel(),
-              const SizedBox(height: 24),
-              const Text(
-                'Pregunta actual',
-                style: TextStyle(
-                  color: Color(0xFF434656),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Cuéntame sobre ti y por qué te interesa esta oportunidad.',
-                style: TextStyle(
-                  color: Color(0xFF0B1C30),
-                  fontSize: 24,
-                  height: 1.2,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const Spacer(),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => context.go(AppRoutes.interview),
-                      icon: const Icon(Icons.close),
-                      label: const Text('Cancelar'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: () => context.go(AppRoutes.interviewFeedback),
-                      icon: const Icon(Icons.stop_circle_outlined),
-                      label: const Text('Finalizar'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CameraPanel extends StatelessWidget {
-  const _CameraPanel();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 420,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: const Color(0xFFEFF4FF),
-        borderRadius: BorderRadius.circular(32),
-      ),
-      child: Stack(
+      appBar: AppBar(title: Text('Entrevista · ${widget.start.track}')),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
         children: [
-          const Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFFF8F9FF), Color(0xFFDCE9FF)],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-              ),
+          for (var i = 0; i < widget.start.questions.length; i++) ...[
+            Text('Pregunta ${i + 1}',
+                style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF003EC7))),
+            const SizedBox(height: 4),
+            Text(widget.start.questions[i], style: Theme.of(context).textTheme.bodyMedium),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _controllers[i],
+              maxLines: 4,
+              decoration: const InputDecoration(hintText: 'Escribe tu respuesta…'),
             ),
+            const SizedBox(height: 20),
+          ],
+          Text('¿Qué tan seguro/a te sentiste? (${_confidence.round()})',
+              style: Theme.of(context).textTheme.bodyMedium),
+          Slider(
+            value: _confidence,
+            min: 0,
+            max: 100,
+            divisions: 20,
+            label: _confidence.round().toString(),
+            onChanged: (v) => setState(() => _confidence = v),
           ),
-          const Center(
-            child: Icon(
-              Icons.face_6_outlined,
-              color: Color(0xFF0B1C30),
-              size: 120,
-            ),
-          ),
-          Positioned(
-            top: 20,
-            left: 20,
-            right: 20,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xEFFFFFFF),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.circle, color: Color(0xFF007550), size: 12),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Analizando contacto visual y postura...',
-                      style: TextStyle(
-                        color: Color(0xFF0B1C30),
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  Icon(Icons.videocam_outlined, color: Color(0xFF003EC7)),
-                ],
-              ),
-            ),
-          ),
-          const Positioned(
-            left: 24,
-            right: 24,
-            bottom: 24,
-            child: _LiveTipCard(),
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: _loading ? null : _submit,
+            child: _loading
+                ? const SizedBox(
+                    height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Text('Finalizar y ver feedback'),
           ),
         ],
       ),
-    );
-  }
-}
-
-class _LiveTipCard extends StatelessWidget {
-  const _LiveTipCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xEFFFFFFF),
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.visibility_outlined, color: Color(0xFF007550)),
-          SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Buen contacto visual. Mantén respuestas breves y estructuradas.',
-              style: TextStyle(
-                color: Color(0xFF0B1C30),
-                fontSize: 14,
-                height: 1.3,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header({required this.onClose});
-
-  final VoidCallback onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Text(
-          'Entrevista',
-          style: TextStyle(
-            color: Color(0xFF0B1C30),
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const Spacer(),
-        IconButton(
-          tooltip: 'Cerrar',
-          onPressed: onClose,
-          icon: const Icon(Icons.close),
-        ),
-      ],
     );
   }
 }
