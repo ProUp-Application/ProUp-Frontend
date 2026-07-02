@@ -19,12 +19,15 @@ Future<void> setupDependencies() async {
   final tokenStorage = TokenStorage(prefs);
   final config = EnvironmentConfig.fromDartDefine();
 
+  final authNotifier = AuthNotifier(tokenStorage);
+
   getIt
     ..registerSingleton<SharedPreferences>(prefs)
     ..registerSingleton<TokenStorage>(tokenStorage)
     ..registerSingleton<EnvironmentConfig>(config)
-    ..registerSingleton<ApiClient>(ApiClient(config: config, tokenStorage: tokenStorage))
-    ..registerSingleton<AuthNotifier>(AuthNotifier(tokenStorage))
+    ..registerSingleton<AuthNotifier>(authNotifier)
+    ..registerSingleton<ApiClient>(
+        ApiClient(config: config, tokenStorage: tokenStorage, authNotifier: authNotifier))
     ..registerLazySingleton<AuthRepository>(() => AuthRepository(getIt(), getIt(), getIt()))
     ..registerLazySingleton<UserRepository>(() => UserRepository(getIt()))
     ..registerLazySingleton<AnalysisRepository>(() => AnalysisRepository(getIt()))

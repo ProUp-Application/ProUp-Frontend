@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../core/di/injector.dart';
 import '../../../../core/router/app_routes.dart';
+import '../../../startup/splash_screen.dart';
 import '../cubit/onboarding_cubit.dart';
 import '../cubit/onboarding_state.dart';
 import '../widgets/onboarding_page_view.dart';
@@ -41,8 +44,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     super.dispose();
   }
 
+  void _markSeen() {
+    // Recordar que el usuario ya vio el onboarding (solo se muestra una vez)
+    getIt<SharedPreferences>().setBool(SplashScreen.onboardingSeenKey, true);
+  }
+
   void _goNext(BuildContext context, OnboardingState state) {
     if (state.isLastPage) {
+      _markSeen();
       context.go(AppRoutes.login);
       return;
     }
@@ -54,6 +63,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _skip(BuildContext context) {
+    _markSeen();
     context.go(AppRoutes.login);
   }
 

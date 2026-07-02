@@ -21,4 +21,10 @@ class ChatRepository {
     final res = await _api.post('/chat/sessions/$sessionId/messages', data: {'content': content});
     return ChatMessageModel.fromJson((res.data as Map<String, dynamic>)['message'] as Map<String, dynamic>);
   }
+
+  /// Sube un CV (PDF, .docx o .txt); el backend extrae el texto y el asesor lo revisa.
+  Future<ChatMessageModel> uploadCv(String sessionId, List<int> bytes, String filename) async {
+    final res = await _api.postFile('/chat/sessions/$sessionId/cv', bytes: bytes, filename: filename);
+    return ChatMessageModel.fromJson((res.data as Map<String, dynamic>)['message'] as Map<String, dynamic>);
+  }
 }
