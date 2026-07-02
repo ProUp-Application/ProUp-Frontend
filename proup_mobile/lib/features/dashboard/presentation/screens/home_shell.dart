@@ -16,16 +16,26 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
+  final _progressKey = GlobalKey<ProgressScreenState>();
 
-  void _select(int i) => setState(() => _index = i);
+  void _select(int i) {
+    setState(() => _index = i);
+    // La pestaña Progreso recarga sus datos cada vez que se abre
+    // (con IndexedStack el widget vive siempre y su initState corre una sola vez).
+    if (i == 3) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _progressKey.currentState?.reload();
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final pages = [
       HomeDashboardScreen(onSelectTab: _select),
       const ScanScreen(),
-      const ChatScreen(),
-      const ProgressScreen(),
+      ChatScreen(onSelectTab: _select),
+      ProgressScreen(key: _progressKey),
       const ProfileScreen(),
     ];
 
