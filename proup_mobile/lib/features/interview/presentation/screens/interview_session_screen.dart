@@ -7,6 +7,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/proup_widgets.dart';
 import '../../data/interview_repository.dart';
 import '../../data/models/interview_models.dart';
+import '../widgets/video_practice_stub.dart'
+    if (dart.library.io) '../widgets/video_practice_io.dart';
 
 class InterviewSessionScreen extends StatefulWidget {
   const InterviewSessionScreen({super.key, required this.start});
@@ -23,6 +25,8 @@ class _InterviewSessionScreenState extends State<InterviewSessionScreen> {
   int _step = 0;
   double _confidence = 60;
   bool _loading = false;
+  bool _videoOn = false;
+  int? _videoScore; // no verbal medido en vivo (modo video)
 
   int get _total => widget.start.questions.length;
   bool get _isLast => _step == _total - 1;
@@ -85,7 +89,8 @@ class _InterviewSessionScreenState extends State<InterviewSessionScreen> {
         id: widget.start.id,
         responses: responses,
         confidenceScore: _confidence.round(),
-        nonVerbalScore: _confidence.round(),
+        // Si practicó con video, usa el puntaje no verbal MEDIDO en vivo
+        nonVerbalScore: _videoScore ?? _confidence.round(),
         durationSeconds: DateTime.now().difference(_startedAt).inSeconds,
       );
       if (!mounted) return;
@@ -143,6 +148,33 @@ class _InterviewSessionScreenState extends State<InterviewSessionScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
                 children: [
+                  // Práctica con video (solo móvil): self-view + análisis no verbal
+                  if (VideoPracticeCard.supported) ...[
+                    Row(
+                      children: [
+                        const Icon(Icons.videocam_outlined, size: 20, color: AppColors.primary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text('Práctica con video (beta)',
+                              style: Theme.of(context).textTheme.titleMedium),
+                        ),
+                        Switch(
+                          value: _videoOn,
+                          onChanged: (v) => setState(() => _videoOn = v),
+                        ),
+                      ],
+                    ),
+                    if (_videoOn) ...[
+                      const SizedBox(height: 4),
+                      VideoPracticeCard(onScore: (s) => _videoScore = s),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Tu cámara analiza EN tu teléfono la presencia, el contacto visual y la sonrisa; el video no se envía a ningún servidor.',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                    const SizedBox(height: 14),
+                  ],
                   // Tarjeta del AI Coach con la pregunta
                   AmbientCard(
                     child: Row(

@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../auth/auth_notifier.dart';
@@ -13,6 +12,7 @@ import '../../features/interview/presentation/screens/interview_feedback_screen.
 import '../../features/interview/presentation/screens/interview_selection_screen.dart';
 import '../../features/interview/presentation/screens/interview_session_screen.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
+import '../../features/startup/splash_screen.dart';
 import 'app_routes.dart';
 
 class AppRouter {
@@ -26,15 +26,17 @@ class AppRouter {
       AppRoutes.onboarding,
       AppRoutes.login,
       AppRoutes.register,
-      AppRoutes.splash,
     };
 
     return GoRouter(
-      initialLocation: AppRoutes.onboarding,
+      initialLocation: AppRoutes.splash,
       refreshListenable: auth,
       redirect: (context, state) {
-        final authed = auth.isAuthenticated;
         final loc = state.matchedLocation;
+        // El splash decide por sí mismo (valida sesión y navega)
+        if (loc == AppRoutes.splash) return null;
+
+        final authed = auth.isAuthenticated;
         final isPublic = publicRoutes.contains(loc);
 
         if (!authed && !isPublic) return AppRoutes.login;
@@ -42,7 +44,7 @@ class AppRouter {
         return null;
       },
       routes: [
-        GoRoute(path: AppRoutes.splash, builder: (_, __) => const _Splash()),
+        GoRoute(path: AppRoutes.splash, builder: (_, __) => const SplashScreen()),
         GoRoute(path: AppRoutes.onboarding, builder: (_, __) => const OnboardingScreen()),
         GoRoute(path: AppRoutes.login, builder: (_, __) => const LoginScreen()),
         GoRoute(path: AppRoutes.register, builder: (_, __) => const RegisterScreen()),
@@ -66,10 +68,3 @@ class AppRouter {
   }
 }
 
-class _Splash extends StatelessWidget {
-  const _Splash();
-
-  @override
-  Widget build(BuildContext context) =>
-      const Scaffold(body: Center(child: CircularProgressIndicator()));
-}

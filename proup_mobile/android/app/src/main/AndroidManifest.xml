@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Cámara: práctica con video del simulador de entrevistas (análisis on-device) -->
+    <uses-permission android:name="android.permission.CAMERA"/>
     <application
-        android:label="proup_mobile"
+        android:label="ProUp"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

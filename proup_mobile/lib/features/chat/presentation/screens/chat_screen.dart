@@ -1,8 +1,10 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/di/injector.dart';
+import '../../../../core/errors/app_exception.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../analysis/data/analysis_repository.dart';
@@ -140,9 +142,19 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
             ListTile(
+              leading: const Icon(Icons.upload_file_outlined, color: AppColors.primary),
+              title: const Text('Subir mi CV (PDF o Word)'),
+              subtitle: const Text('Adjunta el archivo y el asesor lo revisa',
+                  style: TextStyle(fontSize: 12)),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _uploadCvFile();
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.description_outlined, color: AppColors.primary),
-              title: const Text('Revisar mi CV'),
-              subtitle: const Text('Pega el texto de tu CV y recibe observaciones',
+              title: const Text('Pegar texto de mi CV'),
+              subtitle: const Text('Copia y pega el contenido para revisarlo',
                   style: TextStyle(fontSize: 12)),
               onTap: () {
                 Navigator.pop(sheetContext);
@@ -202,6 +214,53 @@ class _ChatScreenState extends State<ChatScreen> {
           .showSnackBar(const SnackBar(content: Text('No se pudo analizar la imagen')));
     } finally {
       if (mounted) setState(() => _analyzing = false);
+    }
+  }
+
+  Future<void> _uploadCvFile() async {
+    final picked = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'docx', 'txt'],
+      withData: true,
+    );
+    final file = picked?.files.firstOrNull;
+    if (file == null || file.bytes == null) return;
+
+    if (_session == null) await _initSession();
+    final session = _session;
+    if (session == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sin conexión con el asesor. Revisa tu internet.')),
+      );
+      return;
+    }
+
+    setState(() {
+      _messages.add(ChatMessageModel(
+          id: 'u${_messages.length}', role: 'USER', content: '📎 Adjunté mi CV: ${file.name}'));
+      _sending = true;
+    });
+    _scrollToEnd();
+
+    try {
+      final reply =
+          await getIt<ChatRepository>().uploadCv(session.id, file.bytes!, file.name);
+      if (!mounted) return;
+      setState(() => _messages.add(reply));
+    } on AppException catch (e) {
+      if (!mounted) return;
+      setState(() => _messages.add(ChatMessageModel(
+          id: 'err${_messages.length}', role: 'ASSISTANT', content: e.message)));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _messages.add(const ChatMessageModel(
+          id: 'err',
+          role: 'ASSISTANT',
+          content: 'No pude leer el archivo. Prueba con un PDF con texto o un .docx.')));
+    } finally {
+      if (mounted) setState(() => _sending = false);
+      _scrollToEnd();
     }
   }
 
