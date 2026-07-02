@@ -11,10 +11,10 @@ class ProgressScreen extends StatefulWidget {
   const ProgressScreen({super.key});
 
   @override
-  State<ProgressScreen> createState() => _ProgressScreenState();
+  State<ProgressScreen> createState() => ProgressScreenState();
 }
 
-class _ProgressScreenState extends State<ProgressScreen> {
+class ProgressScreenState extends State<ProgressScreen> {
   late Future<List<AnalysisModel>> _future;
 
   @override
@@ -23,14 +23,17 @@ class _ProgressScreenState extends State<ProgressScreen> {
     _future = getIt<AnalysisRepository>().list();
   }
 
-  void _reload() => setState(() => _future = getIt<AnalysisRepository>().list());
+  /// Recarga los datos (la invoca el shell cada vez que se entra a la pestaña).
+  void reload() {
+    if (mounted) setState(() => _future = getIt<AnalysisRepository>().list());
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: () async => _reload(),
+          onRefresh: () async => reload(),
           child: FutureBuilder<List<AnalysisModel>>(
             future: _future,
             builder: (context, snapshot) {

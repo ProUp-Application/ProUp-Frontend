@@ -1,12 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/di/injector.dart';
+import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../analysis/data/analysis_repository.dart';
+import '../../../analysis/presentation/ondevice/vision_types.dart';
+import '../../../analysis/presentation/ondevice/vision_stub.dart'
+    if (dart.library.io) '../../../analysis/presentation/ondevice/vision_mlkit.dart';
 import '../../data/chat_repository.dart';
 import '../../data/models/chat_models.dart';
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  const ChatScreen({super.key, this.onSelectTab});
+
+  /// Permite saltar a otra pestaña del shell (ej. Escanear).
+  final void Function(int index)? onSelectTab;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -19,16 +29,19 @@ class _ChatScreenState extends State<ChatScreen> {
     const ChatMessageModel(
       id: 'welcome',
       role: 'ASSISTANT',
-      content: '¡Hola! Soy tu coach. ¿En qué puedo ayudarte hoy?',
+      content:
+          '¡Hola! Soy tu coach ProUp. Conozco tus análisis de imagen y tus entrevistas, así que pregúntame lo que necesites. También puedes tocar el botón + para analizar una foto o revisar tu CV.',
     ),
   ];
   static const _suggestions = [
+    '¿Cómo salió mi último análisis?',
     'Tips de vestimenta',
     'Cómo responder preguntas difíciles',
     'Optimizar mi CV',
   ];
   ChatSessionModel? _session;
   bool _sending = false;
+  bool _analyzing = false;
 
   @override
   void initState() {
@@ -38,7 +51,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _initSession() async {
     try {
-      _session = await getIt<ChatRepository>().createSession(title: 'Asesoría');
+      _session ??= await getIt<ChatRepository>().createSession(title: 'Asesoría');
     } catch (_) {}
   }
 
@@ -52,8 +65,19 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _send([String? preset]) async {
     final text = (preset ?? _controller.text).trim();
     if (text.isEmpty || _sending) return;
-    final session = _session;
-    if (session == null) return;
+
+    // Reintenta crear la sesión si falló al abrir la pantalla
+    if (_session == null) {
+      await _initSession();
+      if (_session == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sin conexión con el asesor. Revisa tu internet e intenta de nuevo.')),
+        );
+        return;
+      }
+    }
+    final session = _session!;
 
     setState(() {
       _messages.add(ChatMessageModel(id: 'u${_messages.length}', role: 'USER', content: text));
@@ -85,6 +109,139 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  // ---------- Acciones del botón "+" ----------
+
+  void _openAttachSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surfaceContainerLowest,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 10),
+            Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: AppColors.outlineVariant, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 6),
+            ListTile(
+              leading: const Icon(Icons.add_a_photo_outlined, color: AppColors.primary),
+              title: const Text('Analizar una foto y pedir consejos'),
+              subtitle: const Text('Se procesa en tu dispositivo; el asesor recibe solo los puntajes',
+                  style: TextStyle(fontSize: 12)),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _analyzePhotoAndAsk();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.description_outlined, color: AppColors.primary),
+              title: const Text('Revisar mi CV'),
+              subtitle: const Text('Pega el texto de tu CV y recibe observaciones',
+                  style: TextStyle(fontSize: 12)),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _openCvDialog();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.record_voice_over_outlined, color: AppColors.primary),
+              title: const Text('Practicar una entrevista'),
+              subtitle: const Text('Ir al simulador de entrevistas', style: TextStyle(fontSize: 12)),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                context.push(AppRoutes.interview);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _analyzePhotoAndAsk() async {
+    final file = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 80);
+    if (file == null) return;
+
+    setState(() => _analyzing = true);
+    try {
+      // 1) Análisis ON-DEVICE (la foto no se sube)
+      final vision = await analyzeImage(file.path, 'FULL_BODY');
+      // 2) Se registra el análisis (solo scores) y se generan recomendaciones
+      final analysis = await getIt<AnalysisRepository>().createAnalysis(
+        captureType: 'FULL_BODY',
+        face: vision.face,
+        clothing: vision.clothing,
+        posture: vision.posture,
+        context: vision.context,
+        clothingFormality: vision.formality,
+        emotionDetected: vision.emotion,
+      );
+      final r = analysis.result;
+      if (!mounted || r == null) return;
+      // 3) Se le pregunta al asesor con los resultados reales
+      await _send(
+        'Acabo de analizar mi imagen en la app. Resultados: global ${r.overallScore}/100, '
+        'rostro ${r.faceScore}, vestimenta ${r.clothingScore}, postura ${r.postureScore}, '
+        'entorno ${r.contextScore}. ¿Qué debería mejorar primero y cómo?',
+      );
+    } on InvalidImageException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(e.message), backgroundColor: AppColors.error));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('No se pudo analizar la imagen')));
+    } finally {
+      if (mounted) setState(() => _analyzing = false);
+    }
+  }
+
+  Future<void> _openCvDialog() async {
+    final cvController = TextEditingController();
+    final text = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Revisar mi CV'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Pega el texto de tu CV (o un resumen) y el asesor te dará observaciones.',
+                style: TextStyle(fontSize: 13)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: cvController,
+              maxLines: 8,
+              maxLength: 4000,
+              decoration: const InputDecoration(hintText: 'Pega aquí el texto de tu CV…'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar')),
+          FilledButton(
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+            onPressed: () => Navigator.pop(dialogContext, cvController.text.trim()),
+            child: const Text('Enviar'),
+          ),
+        ],
+      ),
+    );
+    cvController.dispose();
+    if (text == null || text.isEmpty) return;
+    await _send(
+        'Por favor revisa este resumen de mi CV y dame recomendaciones concretas para mejorarlo:\n\n$text');
+  }
+
   @override
   Widget build(BuildContext context) {
     final showSuggestions = _messages.length <= 1;
@@ -105,7 +262,8 @@ class _ChatScreenState extends State<ChatScreen> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: AppColors.primaryContainer.withValues(alpha: 0.1),
-                        border: Border.all(color: AppColors.primary.withValues(alpha: 0.15), width: 2),
+                        border:
+                            Border.all(color: AppColors.primary.withValues(alpha: 0.15), width: 2),
                       ),
                       child: const Icon(Icons.smart_toy, color: AppColors.primary, size: 38),
                     ),
@@ -115,7 +273,11 @@ class _ChatScreenState extends State<ChatScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFF4EDEA3), shape: BoxShape.circle)),
+                        Container(
+                            width: 8,
+                            height: 8,
+                            decoration:
+                                const BoxDecoration(color: Color(0xFF4EDEA3), shape: BoxShape.circle)),
                         const SizedBox(width: 6),
                         Text('Siempre disponible', style: Theme.of(context).textTheme.bodySmall),
                       ],
@@ -133,23 +295,34 @@ class _ChatScreenState extends State<ChatScreen> {
                         .map((s) => GestureDetector(
                               onTap: () => _send(s),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                 decoration: BoxDecoration(
-                                  color: AppColors.surfaceContainerHighest.withValues(alpha: 0.5),
+                                  color:
+                                      AppColors.surfaceContainerHighest.withValues(alpha: 0.5),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(s,
                                     style: const TextStyle(
-                                        color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.w600)),
+                                        color: AppColors.primary,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600)),
                               ),
                             ))
                         .toList(),
                   ),
                 ],
+                if (_analyzing)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 12, left: 44),
+                    child: Text('analizando tu imagen…',
+                        style: TextStyle(fontSize: 12, color: AppColors.outline)),
+                  ),
                 if (_sending)
                   const Padding(
                     padding: EdgeInsets.only(top: 12, left: 44),
-                    child: Text('escribiendo…', style: TextStyle(fontSize: 12, color: AppColors.outline)),
+                    child:
+                        Text('escribiendo…', style: TextStyle(fontSize: 12, color: AppColors.outline)),
                   ),
               ],
             ),
@@ -163,13 +336,21 @@ class _ChatScreenState extends State<ChatScreen> {
                   color: AppColors.surface,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
-                  boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.08), blurRadius: 32, offset: const Offset(0, 8))],
+                  boxShadow: [
+                    BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.08),
+                        blurRadius: 32,
+                        offset: const Offset(0, 8))
+                  ],
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 child: Row(
                   children: [
-                    const Icon(Icons.add_circle_outline, color: AppColors.secondary),
-                    const SizedBox(width: 4),
+                    IconButton(
+                      onPressed: _analyzing ? null : _openAttachSheet,
+                      icon: const Icon(Icons.add_circle_outline, color: AppColors.secondary),
+                      tooltip: 'Adjuntar',
+                    ),
                     Expanded(
                       child: TextField(
                         controller: _controller,
