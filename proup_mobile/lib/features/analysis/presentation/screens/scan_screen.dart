@@ -40,6 +40,17 @@ class _ScanScreenState extends State<ScanScreen> with SingleTickerProviderStateM
     try {
       // Procesamiento ON-DEVICE: valida que haya una persona y calcula scores
       final vision = await analyzeImage(file.path, captureType);
+
+      // Si se detectaron problemas (lentes de sol, gorra, poca luz, rostro girado),
+      // se avisa al usuario y se le permite repetir la foto ANTES de registrar nada.
+      if (vision.issues.isNotEmpty) {
+        setState(() => _processing = false);
+        if (!mounted) return;
+        final proceed = await _showIssuesDialog(vision.issues);
+        if (proceed != true || !mounted) return;
+        setState(() => _processing = true);
+      }
+
       final analysis = await getIt<AnalysisRepository>().createAnalysis(
         captureType: captureType,
         face: vision.face,
@@ -48,6 +59,7 @@ class _ScanScreenState extends State<ScanScreen> with SingleTickerProviderStateM
         context: vision.context,
         clothingFormality: vision.formality,
         emotionDetected: vision.emotion,
+        rawMetrics: vision.metrics,
       );
       if (!mounted) return;
       context.push(AppRoutes.analysisResult, extra: analysis);
@@ -63,6 +75,50 @@ class _ScanScreenState extends State<ScanScreen> with SingleTickerProviderStateM
     } finally {
       if (mounted) setState(() => _processing = false);
     }
+  }
+
+  /// Muestra las sugerencias detectadas y pregunta si continuar o repetir la foto.
+  Future<bool?> _showIssuesDialog(List<String> issues) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.info_outline, color: AppColors.primary),
+            SizedBox(width: 8),
+            Expanded(child: Text('Mejora tu foto')),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Detectamos algunos puntos que pueden afectar tu resultado:'),
+            const SizedBox(height: 12),
+            ...issues.map((i) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('•  '),
+                      Expanded(child: Text(i)),
+                    ],
+                  ),
+                )),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Volver a tomar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Analizar de todos modos'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _openCaptureSheet() {

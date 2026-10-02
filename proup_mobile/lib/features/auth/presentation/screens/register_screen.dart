@@ -22,7 +22,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   bool _accepted = false;
-  List<ProfessionOption> _professions = [];
+  List<ProfessionOption> _professions = UserRepository.fallbackProfessions;
   String? _profession;
 
   @override

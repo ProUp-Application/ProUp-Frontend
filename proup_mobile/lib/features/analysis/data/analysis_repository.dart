@@ -14,12 +14,14 @@ class AnalysisRepository {
     required int context,
     String? clothingFormality,
     String? emotionDetected,
+    Map<String, dynamic>? rawMetrics,
   }) async {
     final res = await _api.post('/analysis', data: {
       'captureType': captureType,
       'scores': {'face': face, 'clothing': clothing, 'posture': posture, 'context': context},
       if (clothingFormality != null) 'clothingFormality': clothingFormality,
       if (emotionDetected != null) 'emotionDetected': emotionDetected,
+      if (rawMetrics != null && rawMetrics.isNotEmpty) 'rawMetrics': rawMetrics,
     });
     return AnalysisModel.fromJson((res.data as Map<String, dynamic>)['analysis'] as Map<String, dynamic>);
   }
