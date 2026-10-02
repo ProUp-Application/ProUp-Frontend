@@ -24,7 +24,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   final _location = TextEditingController();
   final _goals = TextEditingController();
-  List<ProfessionOption> _professions = [];
+  List<ProfessionOption> _professions = UserRepository.fallbackProfessions;
   String? _profession;
   String? _level;
   UserModel? _user;

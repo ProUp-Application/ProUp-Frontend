@@ -22,7 +22,8 @@ $f = ".flutter-plugins-dependencies"
 if (Test-Path $f) {
   $raw = Get-Content $f -Raw
   $fixed = $raw -replace '\\\\\\\\', '/'   # doble backslash escapado en JSON -> forward slash
-  Set-Content -Path $f -Value $fixed -Encoding utf8 -NoNewline
+  # UTF-8 SIN BOM: con BOM, el plugin-loader de Gradle no puede leer el JSON y el build falla
+  [System.IO.File]::WriteAllText((Resolve-Path $f), $fixed, (New-Object System.Text.UTF8Encoding $false))
 }
 
 Write-Host "3/4 deteniendo daemons de Gradle..." -ForegroundColor Cyan
