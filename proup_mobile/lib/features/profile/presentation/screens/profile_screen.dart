@@ -107,13 +107,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final analyses = (data['analysisRequests'] as List?)?.length ?? 0;
       final interviews = (data['interviews'] as List?)?.length ?? 0;
       final chats = (data['chatSessions'] as List?)?.length ?? 0;
+      final name = '${data['firstName'] ?? ''} ${data['lastName'] ?? ''}'.trim();
+      final email = data['email'] as String? ?? '';
+      final consent = consentSummary(data['consents'] as List?);
+      String count(int n, String one, String many) => '$n ${n == 1 ? one : many}';
       if (!mounted) return;
       showDialog(
         context: context,
         builder: (_) => AlertDialog(
           title: const Text('Tus datos (Ley 29733)'),
           content: Text(
-              'ProUp guarda sobre ti: $analyses análisis de imagen (solo puntajes, nunca fotos), $interviews entrevistas simuladas y $chats conversaciones con el asesor.\n\nTienes derecho a acceder, rectificar, cancelar y oponerte al tratamiento de tus datos en cualquier momento.'),
+              'Cuenta: $name ($email).\n'
+              'Consentimiento de tratamiento de datos personales: $consent.\n\n'
+              'ProUp guarda sobre ti: $analyses análisis de imagen (solo puntajes, nunca fotos), '
+              '${count(interviews, 'entrevista simulada', 'entrevistas simuladas')} y '
+              '${count(chats, 'conversación', 'conversaciones')} con el asesor.\n\nTienes derecho a acceder, rectificar, cancelar y oponerte al tratamiento de tus datos en cualquier momento.'),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Entendido'))
           ],
@@ -366,4 +374,22 @@ class _ProfileStrengthCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Último registro del consentimiento DATA_PROCESSING (Ley 29733) que devuelve
+/// `/users/me/export`, p. ej. "aceptado el 06/11/2026 (versión 1.0)".
+String consentSummary(List? consents) {
+  final records = (consents ?? const [])
+      .whereType<Map<String, dynamic>>()
+      .where((c) => c['type'] == 'DATA_PROCESSING')
+      .toList()
+    ..sort((a, b) => '${b['grantedAt']}'.compareTo('${a['grantedAt']}'));
+  if (records.isEmpty) return 'sin registro';
+  final last = records.first;
+  final date = DateTime.tryParse('${last['grantedAt']}')?.toLocal();
+  final when = date == null
+      ? ''
+      : ' el ${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+  final state = last['granted'] == false ? 'revocado' : 'aceptado';
+  return '$state$when (versión ${last['version'] ?? '1.0'})';
 }
