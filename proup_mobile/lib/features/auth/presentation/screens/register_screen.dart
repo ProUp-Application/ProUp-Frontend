@@ -48,21 +48,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _submit() {
+    // Primero los campos obligatorios (muestran su error debajo de cada uno) y,
+    // solo con el formulario válido, el consentimiento de tratamiento de datos.
+    if (!(_formKey.currentState?.validate() ?? false)) return;
     if (!_accepted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Debes aceptar el tratamiento de datos personales')),
       );
       return;
     }
-    if (_formKey.currentState?.validate() ?? false) {
-      context.read<AuthCubit>().register(
-            email: _email.text.trim(),
-            password: _password.text,
-            firstName: _firstName.text.trim(),
-            lastName: _lastName.text.trim(),
-            profession: _profession,
-          );
-    }
+    context.read<AuthCubit>().register(
+          email: _email.text.trim(),
+          password: _password.text,
+          firstName: _firstName.text.trim(),
+          lastName: _lastName.text.trim(),
+          profession: _profession,
+        );
   }
 
   @override
