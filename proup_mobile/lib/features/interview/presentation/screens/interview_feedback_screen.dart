@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/proup_widgets.dart';
 import '../../../../core/widgets/score_indicators.dart';
 import '../../data/models/interview_models.dart';
+import '../interview_timing.dart';
 
 class InterviewFeedbackScreen extends StatelessWidget {
   const InterviewFeedbackScreen({super.key, required this.simulation});
@@ -15,6 +16,12 @@ class InterviewFeedbackScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final score = simulation.overallScore ?? 0;
+    // El mensaje acompaña al puntaje: no se felicita un resultado bajo
+    final (title, subtitle) = score >= 75
+        ? ('¡Muy buen desempeño!', 'Tus respuestas fueron claras y pertinentes. Sigue practicando para mantener el nivel.')
+        : score >= 50
+            ? ('Vas por buen camino', 'Tienes una buena base. Revisa los comentarios de cada pregunta para dar el siguiente paso.')
+            : ('Hay puntos importantes por mejorar', 'Revisa los comentarios de cada pregunta y vuelve a practicar: cada sesión cuenta.');
     return Scaffold(
       appBar: AppBar(title: const Text('Resultado de la entrevista')),
       body: ListView(
@@ -23,12 +30,28 @@ class InterviewFeedbackScreen extends StatelessWidget {
           const SizedBox(height: 8),
           Center(child: ScoreRing(score: score, color: AppColors.primary, size: 168)),
           const SizedBox(height: 20),
-          Text('¡Buen desempeño!',
-              textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
+          Text(title, textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 8),
-          Text('Estás cada vez más cerca de destacar en tus entrevistas. Sigue practicando.',
-              textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium),
+          Text(subtitle, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium),
+          const SizedBox(height: 8),
+          Text(
+            simulation.nonVerbalScore != null
+                ? 'Puntaje: 70% contenido de tus respuestas y 30% comunicación no verbal medida con la cámara.'
+                : 'Puntaje basado en el contenido de tus respuestas (pertinencia y estructura).',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
           const SizedBox(height: 24),
+
+          if (simulation.questionFeedback.isNotEmpty) ...[
+            Text('Comentarios por pregunta', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 10),
+            ...simulation.questionFeedback.map((q) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _QuestionCard(q: q),
+                )),
+            const SizedBox(height: 10),
+          ],
 
           if (simulation.strengths.isNotEmpty) ...[
             _ListCard(
@@ -95,6 +118,69 @@ class InterviewFeedbackScreen extends StatelessWidget {
             onPressed: () => context.go(AppRoutes.interview),
             child: const Text('Nueva sesión'),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuestionCard extends StatelessWidget {
+  const _QuestionCard({required this.q});
+
+  final QuestionFeedback q;
+
+  @override
+  Widget build(BuildContext context) {
+    final limit = q.timeLimitSeconds;
+    final dur = q.durationSeconds;
+    return AmbientCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text('Pregunta ${q.index}',
+                  style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primary)),
+              const Spacer(),
+              if (q.score != null)
+                Text('${q.score}/100', style: TextStyle(fontWeight: FontWeight.w800, color: scoreColor(q.score!))),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(q.question, style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              StatusChip(
+                label: q.isVoice ? 'Respondida hablando' : 'Respondida por escrito',
+                background: AppColors.surfaceContainer,
+                foreground: AppColors.onSurfaceVariant,
+              ),
+              if (dur != null && dur > 0)
+                StatusChip(
+                  label: limit == null ? formatClock(dur) : '${formatClock(dur)} de ${formatClock(limit)}',
+                  background: (limit != null && dur > limit ? AppColors.error : AppColors.tertiary).withValues(alpha: 0.12),
+                  foreground: limit != null && dur > limit ? AppColors.error : AppColors.tertiary,
+                ),
+            ],
+          ),
+          if ((q.feedback ?? '').isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(q.feedback!, style: Theme.of(context).textTheme.bodyMedium),
+          ],
+          if ((q.timeNote ?? '').isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.timer_outlined, size: 16, color: AppColors.scoreMid),
+                const SizedBox(width: 6),
+                Expanded(child: Text(q.timeNote!, style: Theme.of(context).textTheme.bodySmall)),
+              ],
+            ),
+          ],
         ],
       ),
     );

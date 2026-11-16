@@ -22,16 +22,16 @@ class _Track {
 const _tracks = [
   _Track(Icons.psychology, AppColors.primary, 'Comportamental General',
       'Domina el método STAR y las preguntas de situaciones laborales más comunes.',
-      'Principiante', ['Comunicación', 'Resolución'], '15-20 min', '8 preguntas'),
+      'Principiante', ['Comunicación', 'Resolución'], '~2 min por respuesta', '5 preguntas'),
   _Track(Icons.terminal, AppColors.tertiary, 'Técnica / Caso',
       'Practica análisis de lógica, arquitectura o marcos de negocio.',
-      'Avanzado', ['Pensamiento analítico', 'Estructura'], '45 min', '3 casos'),
+      'Avanzado', ['Pensamiento analítico', 'Estructura'], '~2 min por respuesta', '5 preguntas'),
   _Track(Icons.shield, AppColors.primary, 'Presencia Ejecutiva',
       'Enfócate en gravitas, lenguaje corporal y comunicación con stakeholders.',
-      'Experto', ['Liderazgo', 'Lenguaje corporal'], '30 min', 'Análisis de video'),
+      'Experto', ['Liderazgo', 'Comunicación'], '~2 min por respuesta', '5 escenarios'),
   _Track(Icons.record_voice_over, AppColors.primary, 'Elevator Pitch',
       'Perfecciona tu presentación de 60 segundos para networking o entrevistas.',
-      'Cualquiera', ['Concisión', 'Impacto'], '5 min', 'Práctica libre'),
+      'Cualquiera', ['Concisión', 'Impacto'], '60 s por consigna', '3 consignas'),
 ];
 
 class InterviewSelectionScreen extends StatefulWidget {
@@ -53,8 +53,10 @@ class _InterviewSelectionScreenState extends State<InterviewSelectionScreen> {
       context.push(AppRoutes.interviewSession, extra: start);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('No se pudo iniciar la simulación')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('No se pudo iniciar la simulación. Revisa tu conexión.'),
+        action: SnackBarAction(label: 'Reintentar', onPressed: _start),
+      ));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -72,6 +74,8 @@ class _InterviewSelectionScreenState extends State<InterviewSelectionScreen> {
           const SizedBox(height: 6),
           Text('Escoge un track especializado para perfeccionar tu presencia profesional con el coach de IA.',
               style: Theme.of(context).textTheme.bodyMedium),
+          const SizedBox(height: 14),
+          const _HowItWorks(),
           const SizedBox(height: 20),
           for (var i = 0; i < _tracks.length; i++)
             Padding(
@@ -190,6 +194,48 @@ class _TrackCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Instrucciones antes de empezar (UX-01).
+class _HowItWorks extends StatelessWidget {
+  const _HowItWorks();
+
+  @override
+  Widget build(BuildContext context) {
+    const steps = [
+      (Icons.volume_up_outlined, 'Lee la pregunta o tócala en "Escuchar".'),
+      (Icons.mic_none, 'Responde hablando (como en una entrevista real) o escribiendo.'),
+      (Icons.timer_outlined, 'Un temporizador te muestra el tiempo; el Elevator Pitch dura 60 s.'),
+      (Icons.edit_note, 'Revisa la transcripción, corrige lo que no se entendió y avanza.'),
+      (Icons.insights, 'Al final recibes un comentario por cada respuesta.'),
+    ];
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Cómo funciona', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 10),
+          for (final (icon, text) in steps)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(icon, size: 18, color: AppColors.primary),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(text, style: Theme.of(context).textTheme.bodySmall)),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }

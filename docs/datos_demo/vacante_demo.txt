@@ -1,0 +1,4 @@
+Desarrollador(a) Backend Junior - Empresa de pagos digitales en Lima
+Funciones: desarrollar y mantener APIs REST, escribir pruebas automatizadas, participar en ceremonias Scrum.
+Requisitos: egresado(a) de Ingeniería de Software o Sistemas; experiencia con Node.js o Java; bases de datos SQL (PostgreSQL); Docker; control de versiones con Git; inglés intermedio.
+Deseable: experiencia con AWS y mensajería con Kafka.

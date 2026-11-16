@@ -65,15 +65,17 @@ class ScoreRing extends StatelessWidget {
   }
 }
 
-/// Barra horizontal de un puntaje parcial.
+/// Barra horizontal de un puntaje parcial. Si [score] es null la categoría no se
+/// evaluó (no se veía en la foto) y se muestra "No evaluado" en lugar de un número.
 class ScoreBar extends StatelessWidget {
   const ScoreBar({super.key, required this.label, required this.score});
 
   final String label;
-  final int score;
+  final int? score;
 
   @override
   Widget build(BuildContext context) {
+    final s = score;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
@@ -83,18 +85,21 @@ class ScoreBar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(label, style: Theme.of(context).textTheme.bodyMedium),
-              Text('$score',
-                  style: TextStyle(fontWeight: FontWeight.w700, color: scoreColor(score))),
+              Text(s == null ? 'No evaluado' : '$s',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: s == null ? 12 : null,
+                      color: s == null ? AppColors.outline : scoreColor(s))),
             ],
           ),
           const SizedBox(height: 6),
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
-              value: score / 100,
+              value: s == null ? 0 : s / 100,
               minHeight: 8,
               backgroundColor: AppColors.surfaceContainerHigh,
-              valueColor: AlwaysStoppedAnimation(scoreColor(score)),
+              valueColor: AlwaysStoppedAnimation(s == null ? AppColors.outline : scoreColor(s)),
             ),
           ),
         ],

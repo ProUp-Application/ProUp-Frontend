@@ -87,7 +87,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               tag: 'Recomendado',
               title: 'Escaneo de Imagen',
               subtitle:
-                  'Analiza tu lenguaje corporal y vestimenta profesional con nuestra IA avanzada antes de tu gran entrevista.',
+                  'Analiza tu expresión, vestimenta y postura con IA en tu teléfono. Solo evaluamos lo que se ve en la foto.',
               actionLabel: 'Empezar Análisis',
               onAction: () => widget.onSelectTab(1),
             ),
@@ -100,6 +100,14 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               title: 'Simulador de Entrevista',
               subtitle: 'Practica con nuestra IA personalizada para tu sector.',
               onTap: () => context.push(AppRoutes.interview),
+            ),
+            const SizedBox(height: 14),
+            _ActionCard(
+              icon: Icons.description_outlined,
+              color: AppColors.primaryContainer,
+              title: 'Mejorar mi CV',
+              subtitle: 'Revisión por secciones, pautas ATS y descarga en Word.',
+              onTap: () => context.push(AppRoutes.cv),
             ),
             const SizedBox(height: 14),
             _ActionCard(

@@ -14,8 +14,9 @@ import 'vision_types.dart';
 ///    ojos abiertos (detecta lentes de sol) y orientación de la cabeza.
 /// 2. Image Labeling  → valida la ESCENA: rechaza fotos de documentos (DNI,
 ///    carnets, papeles, pantallas, pósters) y detecta gorras / lentes de sol.
-/// 3. Pose Detection  → postura REAL: nivel de hombros y verticalidad de la
-///    columna a partir de los landmarks del cuerpo.
+/// 3. Pose Detection  → qué partes del cuerpo se ven (encuadre: primer plano,
+///    medio cuerpo o cuerpo completo) y postura REAL: nivel de hombros y
+///    verticalidad del torso. Solo se evalúa lo que aparece en la foto.
 /// Los puntajes se calculan en [scoreVision] (vision_scoring.dart).
 /// La imagen nunca sale del dispositivo; solo se devuelven puntajes.
 Future<OnDeviceVisionResult> analyzeImage(String path, String captureType) async {
@@ -67,39 +68,50 @@ Future<OnDeviceVisionResult> analyzeImage(String path, String captureType) async
         'Parece la foto de un documento o pantalla (por ejemplo, un DNI), no una foto tuya. Tómate una selfie o foto de cuerpo entero real.',
       );
     }
-    if (faceRatio < 0.015) {
-      throw const InvalidImageException(
-        'Tu rostro se ve demasiado pequeño en la imagen. Acércate a la cámara e inténtalo de nuevo.',
-      );
-    }
-
-    // ---------- 3) Postura REAL (pose) ----------
-    int? postureReal;
+    // ---------- 3) Cuerpo: qué partes se ven y postura REAL (pose) ----------
+    var body = BodyVisibility.none;
+    PostureSignals? posture;
     try {
       final poses = await poseDetector.processImage(input);
       if (poses.isNotEmpty) {
         final lm = poses.first.landmarks;
+        bool seen(PoseLandmarkType a, PoseLandmarkType b) =>
+            ((lm[a]?.likelihood ?? 0) >= 0.5) || ((lm[b]?.likelihood ?? 0) >= 0.5);
+        body = BodyVisibility(
+          shoulders: seen(PoseLandmarkType.leftShoulder, PoseLandmarkType.rightShoulder),
+          hips: seen(PoseLandmarkType.leftHip, PoseLandmarkType.rightHip),
+          knees: seen(PoseLandmarkType.leftKnee, PoseLandmarkType.rightKnee),
+          ankles: seen(PoseLandmarkType.leftAnkle, PoseLandmarkType.rightAnkle),
+        );
         final ls = lm[PoseLandmarkType.leftShoulder];
         final rs = lm[PoseLandmarkType.rightShoulder];
         final lh = lm[PoseLandmarkType.leftHip];
         final rh = lm[PoseLandmarkType.rightHip];
-        if (ls != null && rs != null) {
+        if (ls != null && rs != null && body.shoulders) {
           final shoulderWidth = (ls.x - rs.x).abs().clamp(1.0, double.infinity);
           // Hombros nivelados: diferencia vertical relativa al ancho de hombros
           final levelness = (1 - ((ls.y - rs.y).abs() / shoulderWidth)).clamp(0.0, 1.0);
           // Columna vertical: desviación horizontal entre hombros y cadera
-          double verticality = 0.75;
-          if (lh != null && rh != null) {
+          double? verticality;
+          if (lh != null && rh != null && body.hips) {
             final midShoulderX = (ls.x + rs.x) / 2, midShoulderY = (ls.y + rs.y) / 2;
             final midHipX = (lh.x + rh.x) / 2, midHipY = (lh.y + rh.y) / 2;
             final dx = (midShoulderX - midHipX).abs();
             final dy = (midShoulderY - midHipY).abs().clamp(1.0, double.infinity);
             verticality = (1 - (dx / dy)).clamp(0.0, 1.0);
           }
-          postureReal = (35 + levelness * 35 + verticality * 28).round().clamp(35, 98);
+          posture = PostureSignals(shoulderLevelness: levelness, torsoVerticality: verticality);
         }
       }
-    } catch (_) {/* la pose es opcional: si falla, se usa un valor neutro */}
+    } catch (_) {/* la pose es opcional: si falla, la postura queda sin evaluar */}
+
+    // En una foto de cuerpo entero el rostro ocupa poco: el mínimo depende del encuadre
+    final minFace = body.ankles ? 0.003 : 0.015;
+    if (faceRatio < minFace) {
+      throw const InvalidImageException(
+        'Tu rostro se ve demasiado pequeño en la imagen. Acércate a la cámara e inténtalo de nuevo.',
+      );
+    }
 
     return scoreVision(VisionSignals(
       smilingProbability: face.smilingProbability,
@@ -111,7 +123,9 @@ Future<OnDeviceVisionResult> analyzeImage(String path, String captureType) async
       luminance: await _averageLuminance(bytes),
       faceRatio: faceRatio,
       labels: labelMap,
-      postureReal: postureReal,
+      body: body,
+      posture: posture,
+      requestedCapture: captureType,
     ));
   } finally {
     await faceDetector.close();

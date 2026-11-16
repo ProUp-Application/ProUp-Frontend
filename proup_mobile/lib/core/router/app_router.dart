@@ -6,6 +6,7 @@ import '../../features/analysis/data/models/analysis_models.dart';
 import '../../features/analysis/presentation/screens/results_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
+import '../../features/cv/presentation/cv_screen.dart';
 import '../../features/dashboard/presentation/screens/home_shell.dart';
 import '../../features/interview/data/models/interview_models.dart';
 import '../../features/interview/presentation/screens/interview_feedback_screen.dart';
@@ -63,6 +64,7 @@ class AppRouter {
           builder: (_, state) =>
               InterviewFeedbackScreen(simulation: state.extra as InterviewSimulationModel),
         ),
+        GoRoute(path: AppRoutes.cv, builder: (_, __) => const CvScreen()),
       ],
     );
   }

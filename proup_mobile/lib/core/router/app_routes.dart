@@ -10,4 +10,5 @@ class AppRoutes {
   static const interview = '/interview';
   static const interviewSession = '/interview/session';
   static const interviewFeedback = '/interview/feedback';
+  static const cv = '/cv';
 }

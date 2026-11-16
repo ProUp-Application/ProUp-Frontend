@@ -121,13 +121,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
               'Consentimiento de tratamiento de datos personales: $consent.\n\n'
               'ProUp guarda sobre ti: $analyses análisis de imagen (solo puntajes, nunca fotos), '
               '${count(interviews, 'entrevista simulada', 'entrevistas simuladas')} y '
-              '${count(chats, 'conversación', 'conversaciones')} con el asesor.\n\nTienes derecho a acceder, rectificar, cancelar y oponerte al tratamiento de tus datos en cualquier momento.'),
+              '${count(chats, 'conversación', 'conversaciones')} con el asesor.\n\n'
+              'No guarda: tus fotos (se analizan en tu teléfono), el audio de tus respuestas (solo se transcribe) '
+              'ni el CV que revisas en "Mejorar mi CV".\n\n'
+              'Para generar consejos, evaluar entrevistas, transcribir audio y revisar CV, ProUp envía ese texto o audio '
+              'al proveedor de IA Groq; nunca tus fotos, tu correo ni tu contraseña.\n\n'
+              'Tienes derecho a acceder, rectificar, cancelar y oponerte al tratamiento de tus datos en cualquier momento.'),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Entendido'))
           ],
         ),
       );
-    } catch (_) {}
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No pudimos cargar tus datos. Revisa tu conexión e inténtalo de nuevo.')),
+      );
+    }
   }
 
   Future<void> _deleteAccount() async {

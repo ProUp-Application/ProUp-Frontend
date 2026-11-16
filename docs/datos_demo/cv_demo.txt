@@ -1,0 +1,28 @@
+LUCIA TORRES QUISPE
+lucia.torres.demo@correo.com  |  987 654 321  |  San Miguel, Lima
+linkedin.com/in/lucia-torres-demo
+
+SOBRE MI
+Soy una persona responsable, proactiva y con ganas de aprender que busca su primer trabajo en el area de desarrollo de software.
+
+EXPERIENCIA
+Practicante de Desarrollo de Software - Fintech Andina SAC (03/2024 - 12/2024)
+- Encargada de hacer servicios REST en Node.js para el modulo de pagos.
+- Automatize pruebas de integracion y se redujo en 30% el tiempo de despliegue.
+- Apoyo en reuniones con el equipo.
+
+Atencion al cliente - Bodega Don Lucho (01/2022 - 02/2024)
+- Atencion de clientes y manejo de caja.
+- Inventario semanal de productos.
+
+FORMACION
+Ingenieria de Software - Universidad Peruana de Ciencias Aplicadas (UPC), 2019 - 2024
+
+HABILIDADES
+Node.js, TypeScript, PostgreSQL, Git, trabajo en equipo, comunicacion
+
+CURSOS
+Scrum Fundamentals Certified (2023)
+
+IDIOMAS
+Ingles intermedio

@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Cámara: práctica con video del simulador de entrevistas (análisis on-device) -->
     <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- Micrófono: respuestas por voz del simulador (el audio solo se usa para transcribir) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="ProUp"
         android:name="${applicationName}"
@@ -42,6 +45,10 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Lectura en voz de las preguntas del simulador (Text-to-Speech, Android 11+) -->
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE"/>
         </intent>
     </queries>
 </manifest>
