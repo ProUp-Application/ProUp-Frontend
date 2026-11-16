@@ -101,7 +101,13 @@ class ResultsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          if (key != null) _KeyRecommendation(advice: key.advice, label: _recLabels[key.category] ?? ''),
+          if (key != null)
+            _KeyRecommendation(
+              advice: key.advice,
+              label: _recLabels[key.category] ?? '',
+              // Si hasta la categoría más baja es alta (≥ 75), no hay algo "a mejorar"
+              allHigh: scoreForRec(key) >= 75,
+            ),
           const SizedBox(height: 22),
 
           Text('Desglose y por qué', style: theme.textTheme.titleLarge),
@@ -128,6 +134,7 @@ class ResultsScreen extends StatelessWidget {
             formality: _formalityLabels[result.clothingFormality],
             evidence: a.formalityEvidence,
             clothingEvaluated: result.clothingScore != null,
+            notEvaluatedReason: a.notEvaluated['clothing'],
           ),
 
           if (notEvaluated.isNotEmpty) ...[
@@ -160,10 +167,11 @@ class ResultsScreen extends StatelessWidget {
 }
 
 class _KeyRecommendation extends StatelessWidget {
-  const _KeyRecommendation({required this.advice, required this.label});
+  const _KeyRecommendation({required this.advice, required this.label, this.allHigh = false});
 
   final String advice;
   final String label;
+  final bool allHigh;
 
   @override
   Widget build(BuildContext context) {
@@ -182,7 +190,7 @@ class _KeyRecommendation extends StatelessWidget {
               const Icon(Icons.lightbulb, color: AppColors.primary, size: 20),
               const SizedBox(width: 8),
               Expanded(
-                child: Text('Lo primero a mejorar${label.isEmpty ? '' : ' · $label'}',
+                child: Text('${allHigh ? 'Para seguir mejorando' : 'Lo primero a mejorar'}${label.isEmpty ? '' : ' · $label'}',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppColors.primary)),
               ),
             ],
@@ -242,18 +250,29 @@ class _CategoryTile extends StatelessWidget {
 }
 
 class _FormalityCard extends StatelessWidget {
-  const _FormalityCard({required this.formality, required this.evidence, required this.clothingEvaluated});
+  const _FormalityCard({
+    required this.formality,
+    required this.evidence,
+    required this.clothingEvaluated,
+    this.notEvaluatedReason,
+  });
 
   final String? formality;
   final List<String> evidence;
   final bool clothingEvaluated;
+
+  /// Motivo por el que no se evaluó la vestimenta (p. ej. "no identificamos tus
+  /// prendas"), para no afirmar que la ropa no se ve cuando sí aparece.
+  final String? notEvaluatedReason;
 
   @override
   Widget build(BuildContext context) {
     final text = formality == null
         ? (clothingEvaluated
             ? 'No determinada: no se identificaron prendas que permitan valorarla.'
-            : 'No determinada: la ropa no se ve en la foto.')
+            : notEvaluatedReason != null
+                ? 'No determinada. $notEvaluatedReason'
+                : 'No determinada: la ropa no se ve en la foto.')
         : evidence.isEmpty
             ? 'Según las prendas identificadas en la foto.'
             : evidence.join(' ');

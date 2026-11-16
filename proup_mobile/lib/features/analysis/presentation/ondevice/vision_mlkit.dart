@@ -50,7 +50,8 @@ Future<OnDeviceVisionResult> analyzeImage(String path, String captureType) async
     final bytes = await File(path).readAsBytes();
     final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
     final descriptor = await ui.ImageDescriptor.encoded(buffer);
-    final imgArea = (descriptor.width * descriptor.height).toDouble();
+    final imgW = descriptor.width, imgH = descriptor.height;
+    final imgArea = (imgW * imgH).toDouble();
     descriptor.dispose();
     buffer.dispose();
 
@@ -113,6 +114,7 @@ Future<OnDeviceVisionResult> analyzeImage(String path, String captureType) async
       );
     }
 
+    final lum = await _luminance(bytes, face.boundingBox, imgW, imgH);
     return scoreVision(VisionSignals(
       smilingProbability: face.smilingProbability,
       leftEyeOpenProbability: face.leftEyeOpenProbability,
@@ -120,7 +122,8 @@ Future<OnDeviceVisionResult> analyzeImage(String path, String captureType) async
       yaw: face.headEulerAngleY ?? 0,
       roll: face.headEulerAngleZ ?? 0,
       // Luminancia real de la escena: señal objetiva de iluminación
-      luminance: await _averageLuminance(bytes),
+      luminance: lum.scene,
+      faceLuminance: lum.face,
       faceRatio: faceRatio,
       labels: labelMap,
       body: body,
@@ -134,26 +137,52 @@ Future<OnDeviceVisionResult> analyzeImage(String path, String captureType) async
   }
 }
 
-/// Luminancia media (0..1) de la imagen, calculada sobre una miniatura de 64 px
-/// para que sea rápida en el dispositivo. Es una señal objetiva de iluminación.
-Future<double> _averageLuminance(Uint8List bytes) async {
+/// Luminancia media (0..1) de toda la imagen y de la zona del rostro, calculada
+/// sobre una miniatura de 160 px para que sea rápida en el dispositivo. La del
+/// rostro es la señal de iluminación (un fondo claro no es "mala luz").
+Future<({double scene, double? face})> _luminance(Uint8List bytes, ui.Rect faceBox, int imgW, int imgH) async {
   try {
-    final codec = await ui.instantiateImageCodec(bytes, targetWidth: 64);
+    const target = 160;
+    final codec = await ui.instantiateImageCodec(bytes, targetWidth: target);
     final frame = await codec.getNextFrame();
+    final w = frame.image.width, h = frame.image.height;
     final data = await frame.image.toByteData(format: ui.ImageByteFormat.rawRgba);
     frame.image.dispose();
-    if (data == null) return 0.5;
+    if (data == null) return (scene: 0.5, face: null);
     final px = data.buffer.asUint8List();
+    // Luma Rec. 709
+    double luma(int i) => 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
+
     double sum = 0;
     int count = 0;
     for (int i = 0; i + 3 < px.length; i += 4) {
-      // Luma Rec. 709
-      sum += 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
+      sum += luma(i);
       count++;
     }
-    if (count == 0) return 0.5;
-    return (sum / count) / 255.0;
+    final scene = count == 0 ? 0.5 : (sum / count) / 255.0;
+
+    // Zona central del rostro (60 % del recuadro) para no medir pelo ni fondo
+    double? face;
+    if (imgW > 0 && imgH > 0) {
+      // Fotos de cámara con rotación EXIF: el descriptor puede venir sin rotar
+      final rotated = (imgW > imgH) != (w > h) && imgW != imgH;
+      final sx = w / (rotated ? imgH : imgW), sy = h / (rotated ? imgW : imgH);
+      final cx = faceBox.center.dx * sx, cy = faceBox.center.dy * sy;
+      final hw = faceBox.width * sx * 0.3, hh = faceBox.height * sy * 0.3;
+      final x0 = (cx - hw).floor().clamp(0, w - 1), x1 = (cx + hw).ceil().clamp(0, w - 1);
+      final y0 = (cy - hh).floor().clamp(0, h - 1), y1 = (cy + hh).ceil().clamp(0, h - 1);
+      double fs = 0;
+      int fc = 0;
+      for (int y = y0; y <= y1; y++) {
+        for (int x = x0; x <= x1; x++) {
+          fs += luma((y * w + x) * 4);
+          fc++;
+        }
+      }
+      if (fc >= 4) face = (fs / fc) / 255.0;
+    }
+    return (scene: scene, face: face);
   } catch (_) {
-    return 0.5; // ante cualquier fallo, luminancia neutra (no penaliza)
+    return (scene: 0.5, face: null); // ante cualquier fallo, luminancia neutra (no penaliza)
   }
 }

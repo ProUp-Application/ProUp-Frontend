@@ -43,7 +43,7 @@ const _options = [
   _CaptureOption(
     icon: Icons.person_outline,
     title: 'Medio cuerpo',
-    evaluates: 'Además: prenda superior y postura del torso (hombros y cadera a la vista).',
+    evaluates: 'Además: prenda superior y postura del torso (con los hombros a la vista).',
     source: ImageSource.camera,
     requested: 'HALF_BODY',
   ),
@@ -241,7 +241,7 @@ class _ScanScreenState extends State<ScanScreen> {
               const _Tip(icon: Icons.wb_sunny_outlined, text: 'Luz de frente (una ventana o lámpara delante de ti), no a tu espalda.'),
               const _Tip(icon: Icons.crop_portrait, text: 'Fondo limpio y neutro, sin papeles ni pantallas.'),
               const _Tip(icon: Icons.visibility_outlined, text: 'Mira a la cámara, sin lentes de sol ni gorra.'),
-              const _Tip(icon: Icons.straighten, text: 'Para evaluar postura y vestimenta, que se vean tus hombros y cadera; para el calzado, también los pies.'),
+              const _Tip(icon: Icons.straighten, text: 'Para evaluar postura y vestimenta, que se vean tus hombros y torso; para el calzado, también los pies.'),
               const SizedBox(height: 18),
               Container(
                 padding: const EdgeInsets.all(14),
