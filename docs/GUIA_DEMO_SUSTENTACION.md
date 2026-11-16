@@ -9,7 +9,7 @@ Probado en el emulador Android `Medium_Phone_API_36.0` y en el APK.
 |---|---|---|
 | Celular con el APK | Opción principal | Instala el APK de producción (backend en Railway). Activa el micrófono y la cámara la primera vez que la app los pida. |
 | Emulador Android | Si falla el celular | Android Studio → Device Manager → `Medium_Phone_API_36.0`. En las opciones del emulador, habilita **Microphone → Virtual microphone uses host audio input** para grabar respuestas. |
-| Video de respaldo | Si fallan ambos | `video_respaldo_demo.mp4` (grabado del emulador). |
+| Video de respaldo | Si fallan ambos | Cuatro clips grabados del emulador, uno por módulo (no se versionan en git por su tamaño, ~48 MB): `video_respaldo_imagen.mp4`, `video_respaldo_simulador.mp4`, `video_respaldo_cv.mp4` y `video_respaldo_progreso.mp4`. Llévalos en el celular y en una USB. |
 
 Revisa 10 minutos antes: internet estable, batería, volumen del teléfono (para "Escuchar" la pregunta) y que el backend responda en `/health`.
 
