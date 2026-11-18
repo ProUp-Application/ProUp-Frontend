@@ -36,6 +36,7 @@ class AppTheme {
       headlineSmall: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, height: 1.2, color: AppColors.onSurface),
       titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, height: 1.3, color: AppColors.onSurface),
       titleMedium: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.onSurface),
+      titleSmall: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.onSurface),
       bodyLarge: TextStyle(fontSize: 17, fontWeight: FontWeight.w400, height: 1.5, color: AppColors.onSurfaceVariant),
       bodyMedium: TextStyle(fontSize: 15, fontWeight: FontWeight.w400, height: 1.45, color: AppColors.onSurfaceVariant),
       bodySmall: TextStyle(fontSize: 13, fontWeight: FontWeight.w400, height: 1.4, color: AppColors.onSurfaceVariant),

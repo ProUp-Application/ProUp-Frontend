@@ -10,6 +10,7 @@ import '../../features/profile/data/user_repository.dart';
 import '../../features/analysis/data/analysis_repository.dart';
 import '../../features/interview/data/interview_repository.dart';
 import '../../features/chat/data/chat_repository.dart';
+import '../../features/cv/data/cv_repository.dart';
 
 final getIt = GetIt.instance;
 
@@ -32,5 +33,6 @@ Future<void> setupDependencies() async {
     ..registerLazySingleton<UserRepository>(() => UserRepository(getIt()))
     ..registerLazySingleton<AnalysisRepository>(() => AnalysisRepository(getIt()))
     ..registerLazySingleton<InterviewRepository>(() => InterviewRepository(getIt()))
-    ..registerLazySingleton<ChatRepository>(() => ChatRepository(getIt()));
+    ..registerLazySingleton<ChatRepository>(() => ChatRepository(getIt()))
+    ..registerLazySingleton<CvRepository>(() => CvRepository(getIt()));
 }

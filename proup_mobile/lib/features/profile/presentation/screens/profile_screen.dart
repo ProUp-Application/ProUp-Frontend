@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/di/injector.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/connection_banner.dart';
 import '../../../../core/widgets/proup_widgets.dart';
 import '../../../auth/data/auth_repository.dart';
 import '../../../auth/data/models/user_model.dart';
@@ -30,6 +31,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   UserModel? _user;
   bool _loading = true;
   bool _saving = false;
+  ConnectionIssue? _issue; // aviso fijo si no se pudo guardar (se mantiene lo escrito)
 
   @override
   void initState() {
@@ -89,13 +91,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         careerGoals: _goals.text.trim().isEmpty ? null : _goals.text.trim(),
       ));
       if (!mounted) return;
-      setState(() {}); // refresca el anillo de completitud
+      setState(() => _issue = null); // refresca el anillo de completitud
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Perfil actualizado')));
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('No se pudo guardar el perfil')));
+      setState(() => _issue = ConnectionIssue.from(
+          e, 'No se pudo guardar el perfil. Tus cambios siguen en pantalla.',
+          retry: _save));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -121,13 +124,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
               'Consentimiento de tratamiento de datos personales: $consent.\n\n'
               'ProUp guarda sobre ti: $analyses análisis de imagen (solo puntajes, nunca fotos), '
               '${count(interviews, 'entrevista simulada', 'entrevistas simuladas')} y '
-              '${count(chats, 'conversación', 'conversaciones')} con el asesor.\n\nTienes derecho a acceder, rectificar, cancelar y oponerte al tratamiento de tus datos en cualquier momento.'),
+              '${count(chats, 'conversación', 'conversaciones')} con el asesor.\n\n'
+              'No guarda: tus fotos (se analizan en tu teléfono), el audio de tus respuestas (solo se transcribe) '
+              'ni el CV que revisas en "Mejorar mi CV".\n\n'
+              'Para generar consejos, evaluar entrevistas, transcribir audio y revisar CV, ProUp envía ese texto o audio '
+              'al proveedor de IA Groq; nunca tus fotos, tu correo ni tu contraseña.\n\n'
+              'Tienes derecho a acceder, rectificar, cancelar y oponerte al tratamiento de tus datos en cualquier momento.'),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Entendido'))
           ],
         ),
       );
-    } catch (_) {}
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No pudimos cargar tus datos. Revisa tu conexión e inténtalo de nuevo.')),
+      );
+    }
   }
 
   Future<void> _deleteAccount() async {
@@ -163,7 +176,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(title: const Text('Mi perfil')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : ListView(
+          : WithConnectionBanner(
+              issue: _issue,
+              retrying: _saving,
+              onClose: () => setState(() => _issue = null),
+              child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
               children: [
                 // ---- Hero: avatar + identidad ----
@@ -299,6 +316,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
               ],
+            ),
             ),
     );
   }

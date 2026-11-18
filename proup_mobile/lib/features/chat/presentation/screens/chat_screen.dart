@@ -7,6 +7,7 @@ import '../../../../core/di/injector.dart';
 import '../../../../core/errors/app_exception.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/connection_banner.dart';
 import '../../../analysis/data/analysis_repository.dart';
 import '../../../analysis/presentation/ondevice/vision_types.dart';
 import '../../../analysis/presentation/ondevice/vision_stub.dart'
@@ -44,6 +45,7 @@ class _ChatScreenState extends State<ChatScreen> {
   ChatSessionModel? _session;
   bool _sending = false;
   bool _analyzing = false;
+  ConnectionIssue? _issue; // aviso fijo de conexión con "Reintentar"
 
   @override
   void initState() {
@@ -73,29 +75,48 @@ class _ChatScreenState extends State<ChatScreen> {
       await _initSession();
       if (_session == null) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sin conexión con el asesor. Revisa tu internet e intenta de nuevo.')),
-        );
+        // El texto se queda en la caja: "Reintentar" lo envía cuando vuelva la conexión
+        setState(() => _issue = ConnectionIssue(
+              'Sin conexión con el asesor. Revisa tu internet e intenta de nuevo.',
+              retry: () => _send(preset),
+            ));
         return;
       }
     }
     final session = _session!;
 
     setState(() {
+      _issue = null;
       _messages.add(ChatMessageModel(id: 'u${_messages.length}', role: 'USER', content: text));
-      _sending = true;
       _controller.clear();
+    });
+    await _deliver(session, text);
+  }
+
+  /// Envía el mensaje ya mostrado en el chat. Si falla, avisa con un mensaje fijo y
+  /// "Reintentar" vuelve a enviarlo sin duplicar la burbuja del usuario.
+  Future<void> _deliver(ChatSessionModel session, String text) async {
+    setState(() {
+      _messages.removeWhere((m) => m.id == 'err');
+      _sending = true;
     });
     _scrollToEnd();
 
     try {
       final reply = await getIt<ChatRepository>().sendMessage(session.id, text);
       if (!mounted) return;
-      setState(() => _messages.add(reply));
-    } catch (_) {
+      setState(() {
+        _issue = null;
+        _messages.add(reply);
+      });
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _messages.add(const ChatMessageModel(
-          id: 'err', role: 'ASSISTANT', content: 'No pude responder ahora. Intenta de nuevo.')));
+      setState(() {
+        _messages.add(const ChatMessageModel(
+            id: 'err', role: 'ASSISTANT', content: 'No pude responder ahora. Intenta de nuevo.'));
+        _issue = ConnectionIssue.from(e, 'No pude responder ahora. Intenta de nuevo.',
+            retry: () => _deliver(session, text));
+      });
     } finally {
       if (mounted) setState(() => _sending = false);
       _scrollToEnd();
@@ -142,9 +163,19 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
             ListTile(
+              leading: const Icon(Icons.auto_fix_high, color: AppColors.primary),
+              title: const Text('Mejorar mi CV y descargarlo en Word'),
+              subtitle: const Text('Revisión por secciones, pautas ATS y versión editable',
+                  style: TextStyle(fontSize: 12)),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                context.push(AppRoutes.cv);
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.upload_file_outlined, color: AppColors.primary),
-              title: const Text('Subir mi CV (PDF o Word)'),
-              subtitle: const Text('Adjunta el archivo y el asesor lo revisa',
+              title: const Text('Comentar mi CV en el chat (PDF o Word)'),
+              subtitle: const Text('El asesor lo comenta; el texto queda en esta conversación',
                   style: TextStyle(fontSize: 12)),
               onTap: () {
                 Navigator.pop(sheetContext);
@@ -184,24 +215,18 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() => _analyzing = true);
     try {
       // 1) Análisis ON-DEVICE (la foto no se sube)
-      final vision = await analyzeImage(file.path, 'FULL_BODY');
-      // 2) Se registra el análisis (solo scores) y se generan recomendaciones
-      final analysis = await getIt<AnalysisRepository>().createAnalysis(
-        captureType: 'FULL_BODY',
-        face: vision.face,
-        clothing: vision.clothing,
-        posture: vision.posture,
-        context: vision.context,
-        clothingFormality: vision.formality,
-        emotionDetected: vision.emotion,
-      );
+      final vision = await analyzeImage(file.path, 'GALLERY');
+      // 2) Se registra el análisis (solo scores y explicación) y se generan recomendaciones
+      final analysis =
+          await getIt<AnalysisRepository>().createFromVision(vision, captureType: 'FULL_BODY');
       final r = analysis.result;
       if (!mounted || r == null) return;
-      // 3) Se le pregunta al asesor con los resultados reales
+      String part(String name, int? v) => v == null ? '$name no evaluado (no se veía)' : '$name $v';
+      // 3) Se le pregunta al asesor con los resultados reales (solo lo evaluado)
       await _send(
-        'Acabo de analizar mi imagen en la app. Resultados: global ${r.overallScore}/100, '
-        'rostro ${r.faceScore}, vestimenta ${r.clothingScore}, postura ${r.postureScore}, '
-        'entorno ${r.contextScore}. ¿Qué debería mejorar primero y cómo?',
+        'Acabo de analizar mi imagen (${vision.frameType.label.toLowerCase()}). Resultados: global ${r.overallScore}/100, '
+        '${part('rostro', r.faceScore)}, ${part('vestimenta', r.clothingScore)}, '
+        '${part('postura', r.postureScore)}, ${part('entorno', r.contextScore)}. ¿Qué debería mejorar primero y cómo?',
       );
     } on InvalidImageException catch (e) {
       if (!mounted) return;
@@ -230,9 +255,10 @@ class _ChatScreenState extends State<ChatScreen> {
     final session = _session;
     if (session == null) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sin conexión con el asesor. Revisa tu internet.')),
-      );
+      setState(() => _issue = ConnectionIssue(
+            'Sin conexión con el asesor. Revisa tu internet e intenta de nuevo.',
+            retry: _reconnect,
+          ));
       return;
     }
 
@@ -301,12 +327,27 @@ class _ChatScreenState extends State<ChatScreen> {
         'Por favor revisa este resumen de mi CV y dame recomendaciones concretas para mejorarlo:\n\n$text');
   }
 
+  /// "Reintentar" cuando no se pudo abrir la conversación con el asesor.
+  Future<void> _reconnect() async {
+    setState(() => _sending = true);
+    await _initSession();
+    if (!mounted) return;
+    setState(() {
+      _sending = false;
+      if (_session != null) _issue = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final showSuggestions = _messages.length <= 1;
     return Scaffold(
       body: SafeArea(
-        child: Stack(
+        child: WithConnectionBanner(
+          issue: _issue,
+          retrying: _sending,
+          onClose: () => setState(() => _issue = null),
+          child: Stack(
           children: [
             ListView(
               controller: _scroll,
@@ -434,6 +475,7 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

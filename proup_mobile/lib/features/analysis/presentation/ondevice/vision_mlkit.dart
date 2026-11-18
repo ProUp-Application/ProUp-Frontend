@@ -14,11 +14,15 @@ import 'vision_types.dart';
 ///    ojos abiertos (detecta lentes de sol) y orientación de la cabeza.
 /// 2. Image Labeling  → valida la ESCENA: rechaza fotos de documentos (DNI,
 ///    carnets, papeles, pantallas, pósters) y detecta gorras / lentes de sol.
-/// 3. Pose Detection  → postura REAL: nivel de hombros y verticalidad de la
-///    columna a partir de los landmarks del cuerpo.
+/// 3. Pose Detection  → qué partes del cuerpo se ven (encuadre: primer plano,
+///    medio cuerpo o cuerpo completo) y postura REAL: nivel de hombros y
+///    verticalidad del torso. Solo se evalúa lo que aparece en la foto.
 /// Los puntajes se calculan en [scoreVision] (vision_scoring.dart).
 /// La imagen nunca sale del dispositivo; solo se devuelven puntajes.
+/// El tiempo total (lectura de la foto + 3 modelos + puntajes) se guarda en
+/// `metrics['analysisMs']` para verificar el RNF-01 en el teléfono real.
 Future<OnDeviceVisionResult> analyzeImage(String path, String captureType) async {
+  final stopwatch = Stopwatch()..start();
   final input = InputImage.fromFilePath(path);
   final faceDetector = FaceDetector(
     options: FaceDetectorOptions(
@@ -49,7 +53,8 @@ Future<OnDeviceVisionResult> analyzeImage(String path, String captureType) async
     final bytes = await File(path).readAsBytes();
     final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
     final descriptor = await ui.ImageDescriptor.encoded(buffer);
-    final imgArea = (descriptor.width * descriptor.height).toDouble();
+    final imgW = descriptor.width, imgH = descriptor.height;
+    final imgArea = (imgW * imgH).toDouble();
     descriptor.dispose();
     buffer.dispose();
 
@@ -67,52 +72,68 @@ Future<OnDeviceVisionResult> analyzeImage(String path, String captureType) async
         'Parece la foto de un documento o pantalla (por ejemplo, un DNI), no una foto tuya. Tómate una selfie o foto de cuerpo entero real.',
       );
     }
-    if (faceRatio < 0.015) {
-      throw const InvalidImageException(
-        'Tu rostro se ve demasiado pequeño en la imagen. Acércate a la cámara e inténtalo de nuevo.',
-      );
-    }
-
-    // ---------- 3) Postura REAL (pose) ----------
-    int? postureReal;
+    // ---------- 3) Cuerpo: qué partes se ven y postura REAL (pose) ----------
+    var body = BodyVisibility.none;
+    PostureSignals? posture;
     try {
       final poses = await poseDetector.processImage(input);
       if (poses.isNotEmpty) {
         final lm = poses.first.landmarks;
+        bool seen(PoseLandmarkType a, PoseLandmarkType b) =>
+            ((lm[a]?.likelihood ?? 0) >= 0.5) || ((lm[b]?.likelihood ?? 0) >= 0.5);
+        body = BodyVisibility(
+          shoulders: seen(PoseLandmarkType.leftShoulder, PoseLandmarkType.rightShoulder),
+          hips: seen(PoseLandmarkType.leftHip, PoseLandmarkType.rightHip),
+          knees: seen(PoseLandmarkType.leftKnee, PoseLandmarkType.rightKnee),
+          ankles: seen(PoseLandmarkType.leftAnkle, PoseLandmarkType.rightAnkle),
+        );
         final ls = lm[PoseLandmarkType.leftShoulder];
         final rs = lm[PoseLandmarkType.rightShoulder];
         final lh = lm[PoseLandmarkType.leftHip];
         final rh = lm[PoseLandmarkType.rightHip];
-        if (ls != null && rs != null) {
+        if (ls != null && rs != null && body.shoulders) {
           final shoulderWidth = (ls.x - rs.x).abs().clamp(1.0, double.infinity);
           // Hombros nivelados: diferencia vertical relativa al ancho de hombros
           final levelness = (1 - ((ls.y - rs.y).abs() / shoulderWidth)).clamp(0.0, 1.0);
           // Columna vertical: desviación horizontal entre hombros y cadera
-          double verticality = 0.75;
-          if (lh != null && rh != null) {
+          double? verticality;
+          if (lh != null && rh != null && body.hips) {
             final midShoulderX = (ls.x + rs.x) / 2, midShoulderY = (ls.y + rs.y) / 2;
             final midHipX = (lh.x + rh.x) / 2, midHipY = (lh.y + rh.y) / 2;
             final dx = (midShoulderX - midHipX).abs();
             final dy = (midShoulderY - midHipY).abs().clamp(1.0, double.infinity);
             verticality = (1 - (dx / dy)).clamp(0.0, 1.0);
           }
-          postureReal = (35 + levelness * 35 + verticality * 28).round().clamp(35, 98);
+          posture = PostureSignals(shoulderLevelness: levelness, torsoVerticality: verticality);
         }
       }
-    } catch (_) {/* la pose es opcional: si falla, se usa un valor neutro */}
+    } catch (_) {/* la pose es opcional: si falla, la postura queda sin evaluar */}
 
-    return scoreVision(VisionSignals(
+    // En una foto de cuerpo entero el rostro ocupa poco: el mínimo depende del encuadre
+    final minFace = body.ankles ? 0.003 : 0.015;
+    if (faceRatio < minFace) {
+      throw const InvalidImageException(
+        'Tu rostro se ve demasiado pequeño en la imagen. Acércate a la cámara e inténtalo de nuevo.',
+      );
+    }
+
+    final lum = await _luminance(bytes, face.boundingBox, imgW, imgH);
+    final result = scoreVision(VisionSignals(
       smilingProbability: face.smilingProbability,
       leftEyeOpenProbability: face.leftEyeOpenProbability,
       rightEyeOpenProbability: face.rightEyeOpenProbability,
       yaw: face.headEulerAngleY ?? 0,
       roll: face.headEulerAngleZ ?? 0,
       // Luminancia real de la escena: señal objetiva de iluminación
-      luminance: await _averageLuminance(bytes),
+      luminance: lum.scene,
+      faceLuminance: lum.face,
       faceRatio: faceRatio,
       labels: labelMap,
-      postureReal: postureReal,
+      body: body,
+      posture: posture,
+      requestedCapture: captureType,
     ));
+    return result.withAnalysisMs(stopwatch.elapsedMilliseconds);
   } finally {
     await faceDetector.close();
     await labeler.close();
@@ -120,26 +141,52 @@ Future<OnDeviceVisionResult> analyzeImage(String path, String captureType) async
   }
 }
 
-/// Luminancia media (0..1) de la imagen, calculada sobre una miniatura de 64 px
-/// para que sea rápida en el dispositivo. Es una señal objetiva de iluminación.
-Future<double> _averageLuminance(Uint8List bytes) async {
+/// Luminancia media (0..1) de toda la imagen y de la zona del rostro, calculada
+/// sobre una miniatura de 160 px para que sea rápida en el dispositivo. La del
+/// rostro es la señal de iluminación (un fondo claro no es "mala luz").
+Future<({double scene, double? face})> _luminance(Uint8List bytes, ui.Rect faceBox, int imgW, int imgH) async {
   try {
-    final codec = await ui.instantiateImageCodec(bytes, targetWidth: 64);
+    const target = 160;
+    final codec = await ui.instantiateImageCodec(bytes, targetWidth: target);
     final frame = await codec.getNextFrame();
+    final w = frame.image.width, h = frame.image.height;
     final data = await frame.image.toByteData(format: ui.ImageByteFormat.rawRgba);
     frame.image.dispose();
-    if (data == null) return 0.5;
+    if (data == null) return (scene: 0.5, face: null);
     final px = data.buffer.asUint8List();
+    // Luma Rec. 709
+    double luma(int i) => 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
+
     double sum = 0;
     int count = 0;
     for (int i = 0; i + 3 < px.length; i += 4) {
-      // Luma Rec. 709
-      sum += 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
+      sum += luma(i);
       count++;
     }
-    if (count == 0) return 0.5;
-    return (sum / count) / 255.0;
+    final scene = count == 0 ? 0.5 : (sum / count) / 255.0;
+
+    // Zona central del rostro (60 % del recuadro) para no medir pelo ni fondo
+    double? face;
+    if (imgW > 0 && imgH > 0) {
+      // Fotos de cámara con rotación EXIF: el descriptor puede venir sin rotar
+      final rotated = (imgW > imgH) != (w > h) && imgW != imgH;
+      final sx = w / (rotated ? imgH : imgW), sy = h / (rotated ? imgW : imgH);
+      final cx = faceBox.center.dx * sx, cy = faceBox.center.dy * sy;
+      final hw = faceBox.width * sx * 0.3, hh = faceBox.height * sy * 0.3;
+      final x0 = (cx - hw).floor().clamp(0, w - 1), x1 = (cx + hw).ceil().clamp(0, w - 1);
+      final y0 = (cy - hh).floor().clamp(0, h - 1), y1 = (cy + hh).ceil().clamp(0, h - 1);
+      double fs = 0;
+      int fc = 0;
+      for (int y = y0; y <= y1; y++) {
+        for (int x = x0; x <= x1; x++) {
+          fs += luma((y * w + x) * 4);
+          fc++;
+        }
+      }
+      if (fc >= 4) face = (fs / fc) / 255.0;
+    }
+    return (scene: scene, face: face);
   } catch (_) {
-    return 0.5; // ante cualquier fallo, luminancia neutra (no penaliza)
+    return (scene: 0.5, face: null); // ante cualquier fallo, luminancia neutra (no penaliza)
   }
 }

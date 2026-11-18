@@ -123,6 +123,16 @@ class ApiClient {
     return _run(() => _dio.post<T>(path, data: form));
   }
 
+  /// POST que devuelve un archivo binario (p. ej. el CV en Word).
+  Future<List<int>> postForBytes(String path, {Object? data}) async {
+    final res = await _run(() => _dio.post<List<int>>(
+          path,
+          data: data,
+          options: Options(responseType: ResponseType.bytes, receiveTimeout: const Duration(seconds: 60)),
+        ));
+    return res.data ?? const [];
+  }
+
   Future<Response<T>> _run<T>(Future<Response<T>> Function() request) async {
     _ensureBackendConfigured();
     try {
