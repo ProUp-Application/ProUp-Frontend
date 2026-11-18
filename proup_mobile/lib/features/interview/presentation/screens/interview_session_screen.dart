@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/di/injector.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/connection_banner.dart';
 import '../../../../core/widgets/proup_widgets.dart';
 import '../../data/interview_repository.dart';
 import '../../data/models/interview_models.dart';
@@ -41,6 +42,7 @@ class _InterviewSessionScreenState extends State<InterviewSessionScreen> {
   bool _ttsReady = false;
   bool _voiceMode = !kIsWeb; // en el teléfono se propone responder hablando
   int? _videoScore; // no verbal medido en vivo (modo video)
+  ConnectionIssue? _issue; // aviso fijo si falla el envío (no desaparece solo)
 
   int get _total => widget.start.questions.length;
   int get _limit => widget.start.timeLimitSeconds;
@@ -209,7 +211,10 @@ class _InterviewSessionScreenState extends State<InterviewSessionScreen> {
       );
       if (go != true) return;
     }
+    await _send(responses);
+  }
 
+  Future<void> _send(List<Map<String, dynamic>> responses) async {
     setState(() => _loading = true);
     try {
       final result = await getIt<InterviewRepository>().submit(
@@ -221,10 +226,15 @@ class _InterviewSessionScreenState extends State<InterviewSessionScreen> {
         durationSeconds: DateTime.now().difference(_startedAt).inSeconds,
       );
       if (!mounted) return;
+      setState(() => _issue = null);
       context.pushReplacement(AppRoutes.interviewFeedback, extra: result);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      _snack('No se pudo enviar la entrevista. Revisa tu conexión: tus respuestas siguen aquí.');
+      setState(() => _issue = ConnectionIssue.from(
+            e,
+            'No se pudo enviar la entrevista. Revisa tu conexión: tus respuestas siguen aquí.',
+            retry: () => _send(responses),
+          ));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -256,6 +266,14 @@ class _InterviewSessionScreenState extends State<InterviewSessionScreen> {
         body: SafeArea(
           child: Column(
             children: [
+              if (_issue != null)
+                ConnectionBanner(
+                  message: _issue!.message,
+                  offline: _issue!.offline,
+                  retrying: _loading,
+                  onRetry: _issue!.retry,
+                  onClose: () => setState(() => _issue = null),
+                ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
                 child: Column(

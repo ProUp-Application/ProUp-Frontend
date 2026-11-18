@@ -96,6 +96,18 @@ class ResultsScreen extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall,
                 ),
+                if (result.analysisMs != null) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.timer_outlined, size: 14, color: AppColors.onSurfaceVariant),
+                      const SizedBox(width: 4),
+                      Text(processingTimeLabel(result.analysisMs!),
+                          style: theme.textTheme.bodySmall?.copyWith(color: AppColors.onSurfaceVariant)),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -411,4 +423,10 @@ class _RecommendationCardState extends State<_RecommendationCard> {
       ),
     );
   }
+}
+
+/// "Procesado en tu teléfono en 1,4 s" (formato peruano, con coma decimal).
+String processingTimeLabel(int ms) {
+  final seconds = (ms / 1000).toStringAsFixed(1).replaceAll('.', ',');
+  return 'Procesado en tu teléfono en $seconds s';
 }

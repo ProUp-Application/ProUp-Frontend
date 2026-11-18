@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/di/injector.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/connection_banner.dart';
 import '../../../../core/widgets/proup_widgets.dart';
 import '../../../auth/data/auth_repository.dart';
 import '../../../auth/data/models/user_model.dart';
@@ -30,6 +31,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   UserModel? _user;
   bool _loading = true;
   bool _saving = false;
+  ConnectionIssue? _issue; // aviso fijo si no se pudo guardar (se mantiene lo escrito)
 
   @override
   void initState() {
@@ -89,13 +91,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         careerGoals: _goals.text.trim().isEmpty ? null : _goals.text.trim(),
       ));
       if (!mounted) return;
-      setState(() {}); // refresca el anillo de completitud
+      setState(() => _issue = null); // refresca el anillo de completitud
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Perfil actualizado')));
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('No se pudo guardar el perfil')));
+      setState(() => _issue = ConnectionIssue.from(
+          e, 'No se pudo guardar el perfil. Tus cambios siguen en pantalla.',
+          retry: _save));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -173,7 +176,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(title: const Text('Mi perfil')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : ListView(
+          : WithConnectionBanner(
+              issue: _issue,
+              retrying: _saving,
+              onClose: () => setState(() => _issue = null),
+              child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
               children: [
                 // ---- Hero: avatar + identidad ----
@@ -309,6 +316,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
               ],
+            ),
             ),
     );
   }

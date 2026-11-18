@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/di/injector.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/connection_banner.dart';
 import '../../../../core/widgets/proup_widgets.dart';
 import '../../data/interview_repository.dart';
 
@@ -44,19 +45,19 @@ class InterviewSelectionScreen extends StatefulWidget {
 class _InterviewSelectionScreenState extends State<InterviewSelectionScreen> {
   int _selected = 0;
   bool _loading = false;
+  ConnectionIssue? _issue; // aviso fijo si no se pudo iniciar (no desaparece solo)
 
   Future<void> _start() async {
     setState(() => _loading = true);
     try {
       final start = await getIt<InterviewRepository>().start(_tracks[_selected].title);
       if (!mounted) return;
+      setState(() => _issue = null);
       context.push(AppRoutes.interviewSession, extra: start);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: const Text('No se pudo iniciar la simulación. Revisa tu conexión.'),
-        action: SnackBarAction(label: 'Reintentar', onPressed: _start),
-      ));
+      setState(() => _issue =
+          ConnectionIssue.from(e, 'No se pudo iniciar la simulación. Revisa tu conexión.', retry: _start));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -66,7 +67,11 @@ class _InterviewSelectionScreenState extends State<InterviewSelectionScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('ProUp')),
-      body: ListView(
+      body: WithConnectionBanner(
+        issue: _issue,
+        retrying: _loading,
+        onClose: () => setState(() => _issue = null),
+        child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
           Text('Elige tu Simulación',
@@ -103,6 +108,7 @@ class _InterviewSelectionScreenState extends State<InterviewSelectionScreen> {
             ),
           ),
         ],
+        ),
       ),
       bottomNavigationBar: Container(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),

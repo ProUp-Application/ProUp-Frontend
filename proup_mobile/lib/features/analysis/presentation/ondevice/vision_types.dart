@@ -87,6 +87,26 @@ class OnDeviceVisionResult {
   /// Sirven para auditoría/depuración; no reconstruyen el rostro.
   final Map<String, dynamic> metrics;
 
+  /// Tiempo total del análisis en el teléfono (ms), medido en [analyzeImage].
+  /// Sirve para verificar el RNF-01 (< 3 s en un equipo de gama media).
+  int? get analysisMs => metrics['analysisMs'] as int?;
+
+  /// Copia del resultado con el tiempo de procesamiento en [metrics].
+  OnDeviceVisionResult withAnalysisMs(int ms) => OnDeviceVisionResult(
+        frameType: frameType,
+        face: face,
+        clothing: clothing,
+        posture: posture,
+        context: context,
+        formality: formality,
+        emotion: emotion,
+        evaluated: evaluated,
+        notEvaluated: notEvaluated,
+        formalityEvidence: formalityEvidence,
+        issues: issues,
+        metrics: {...metrics, 'analysisMs': ms},
+      );
+
   Map<String, dynamic> assessmentJson() => {
         'evaluated': evaluated.map((e) => e.toJson()).toList(),
         'notEvaluated': notEvaluated.map((e) => e.toJson()).toList(),

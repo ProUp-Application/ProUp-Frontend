@@ -6,6 +6,7 @@ import '../../../../core/di/injector.dart';
 import '../../../../core/errors/app_exception.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/connection_banner.dart';
 import '../../data/analysis_repository.dart';
 import '../ondevice/vision_types.dart';
 import '../ondevice/vision_stub.dart' if (dart.library.io) '../ondevice/vision_mlkit.dart';
@@ -72,6 +73,7 @@ class ScanScreen extends StatefulWidget {
 
 class _ScanScreenState extends State<ScanScreen> {
   String? _step; // texto del paso en curso (null = sin procesar)
+  ConnectionIssue? _issue; // aviso fijo si no se pudo guardar el análisis
 
   bool get _processing => _step != null;
 
@@ -96,17 +98,34 @@ class _ScanScreenState extends State<ScanScreen> {
         if (proceed != true || !mounted) return;
       }
 
-      setState(() => _step = 'Generando tus recomendaciones…');
+      await _save(vision, option);
+      return;
+    } on InvalidImageException catch (e) {
+      _showError(e.message, retry: option);
+    } catch (_) {
+      _showError('No se pudo completar el análisis. Inténtalo de nuevo.', retry: option);
+    } finally {
+      if (mounted) setState(() => _step = null);
+    }
+  }
+
+  /// Registra el análisis ya hecho en el teléfono. Si falla la conexión, queda un
+  /// aviso fijo y "Reintentar" vuelve a enviar los mismos puntajes (no hay que
+  /// repetir la foto).
+  Future<void> _save(OnDeviceVisionResult vision, _CaptureOption option) async {
+    setState(() => _step = 'Generando tus recomendaciones…');
+    try {
       final analysis = await getIt<AnalysisRepository>()
           .createFromVision(vision, captureType: option.apiCaptureType);
       if (!mounted) return;
+      setState(() => _issue = null);
       context.push(AppRoutes.analysisResult, extra: analysis);
-    } on InvalidImageException catch (e) {
-      _showError(e.message, retry: option);
-    } on AppException catch (e) {
-      _showError('${e.message}. Tu foto no se envió; puedes intentarlo de nuevo.', retry: option);
-    } catch (_) {
-      _showError('No se pudo completar el análisis. Inténtalo de nuevo.', retry: option);
+    } catch (e) {
+      if (!mounted) return;
+      final message = e is ServerException
+          ? 'No se pudo completar el análisis: ${e.message}.'
+          : 'No se pudo completar el análisis. Revisa tu conexión: tu foto no se envió.';
+      setState(() => _issue = ConnectionIssue.from(e, message, retry: () => _save(vision, option)));
     } finally {
       if (mounted) setState(() => _step = null);
     }
@@ -229,7 +248,11 @@ class _ScanScreenState extends State<ScanScreen> {
           ),
         ),
         child: SafeArea(
-          child: ListView(
+          child: WithConnectionBanner(
+            issue: _issue,
+            retrying: _processing,
+            onClose: () => setState(() => _issue = null),
+            child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
             children: [
               const Text('Análisis de imagen',
@@ -297,6 +320,7 @@ class _ScanScreenState extends State<ScanScreen> {
                 ),
               ),
             ],
+          ),
           ),
         ),
       ),

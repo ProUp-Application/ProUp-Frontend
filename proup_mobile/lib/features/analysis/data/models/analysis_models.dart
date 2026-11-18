@@ -81,6 +81,7 @@ class AnalysisResultModel {
     this.frameType,
     this.assessment,
     this.recommendations = const [],
+    this.analysisMs,
   });
 
   final String id;
@@ -96,6 +97,9 @@ class AnalysisResultModel {
   final FrameType? frameType;
   final AssessmentModel? assessment;
   final List<RecommendationModel> recommendations;
+
+  /// Tiempo que tardó el análisis en el teléfono (ms), si se midió (RNF-01).
+  final int? analysisMs;
 
   /// Puntaje de una categoría por su clave (face|clothing|posture|context).
   int? scoreOf(String category) => switch (category) {
@@ -120,6 +124,10 @@ class AnalysisResultModel {
         recommendations: (json['recommendations'] as List<dynamic>? ?? [])
             .map((e) => RecommendationModel.fromJson(e as Map<String, dynamic>))
             .toList(),
+        analysisMs: switch (json['rawMetrics']) {
+          {'analysisMs': final num ms} => ms.round(),
+          _ => null,
+        },
       );
 }
 

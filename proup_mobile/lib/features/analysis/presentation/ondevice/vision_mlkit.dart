@@ -19,7 +19,10 @@ import 'vision_types.dart';
 ///    verticalidad del torso. Solo se evalúa lo que aparece en la foto.
 /// Los puntajes se calculan en [scoreVision] (vision_scoring.dart).
 /// La imagen nunca sale del dispositivo; solo se devuelven puntajes.
+/// El tiempo total (lectura de la foto + 3 modelos + puntajes) se guarda en
+/// `metrics['analysisMs']` para verificar el RNF-01 en el teléfono real.
 Future<OnDeviceVisionResult> analyzeImage(String path, String captureType) async {
+  final stopwatch = Stopwatch()..start();
   final input = InputImage.fromFilePath(path);
   final faceDetector = FaceDetector(
     options: FaceDetectorOptions(
@@ -115,7 +118,7 @@ Future<OnDeviceVisionResult> analyzeImage(String path, String captureType) async
     }
 
     final lum = await _luminance(bytes, face.boundingBox, imgW, imgH);
-    return scoreVision(VisionSignals(
+    final result = scoreVision(VisionSignals(
       smilingProbability: face.smilingProbability,
       leftEyeOpenProbability: face.leftEyeOpenProbability,
       rightEyeOpenProbability: face.rightEyeOpenProbability,
@@ -130,6 +133,7 @@ Future<OnDeviceVisionResult> analyzeImage(String path, String captureType) async
       posture: posture,
       requestedCapture: captureType,
     ));
+    return result.withAnalysisMs(stopwatch.elapsedMilliseconds);
   } finally {
     await faceDetector.close();
     await labeler.close();
